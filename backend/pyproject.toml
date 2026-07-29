@@ -1,0 +1,114 @@
+[project]
+name = "researchscout"
+version = "0.1.0"
+description = "AI Agent platform for autonomous research opportunity discovery"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+
+dependencies = [
+    # Web Framework
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "python-multipart>=0.0.18",
+
+    # Agent Orchestration
+    "langgraph>=0.3",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.3",
+    "langchain-google-genai>=2.1",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "redis>=5.2",
+
+    # Vector DB
+    "qdrant-client>=1.12",
+
+    # Graph DB
+    "neo4j>=5.26",
+
+    # LLMs
+    "openai>=1.60",
+    "google-genai>=1.5",
+
+    # NLP
+    "spacy>=3.8",
+    "keybert>=0.8",
+    "sentence-transformers>=3.4",
+
+    # Crawling
+    "httpx>=0.28",
+    "beautifulsoup4>=4.12",
+    "feedparser>=6.0",
+    "markdownify>=0.14",
+
+    # Parsing
+    "pymupdf>=1.25",
+    "python-docx>=1.1",
+
+    # Dedup
+    "datasketch>=1.6",
+    "rapidfuzz>=3.10",
+
+    # Task Queue
+    "celery[redis]>=5.4",
+
+    # Auth
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
+
+    # Observability
+    "structlog>=24.4",
+    "prometheus-client>=0.21",
+
+    # Utilities
+    "tenacity>=9.0",
+    "apscheduler>=3.10",
+    "python-dateutil>=2.9",
+    "tldextract>=5.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+]
+
+crawl = [
+    "crawl4ai>=0.5",
+    "playwright>=1.49",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]

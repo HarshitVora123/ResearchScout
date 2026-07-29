@@ -1,0 +1,60 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python distribution
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Docker volumes (local)
+postgres_data/
+qdrant_data/
+neo4j_data/
+minio_data/
+redis_data/
+
+# Node.js
+node_modules/
+.next/
+out/
+
+# Logs
+*.log
+logs/
+
+# Data artifacts
+data/models/*.bin
+data/models/*.pt
+
+# SQLite databases
+*.db

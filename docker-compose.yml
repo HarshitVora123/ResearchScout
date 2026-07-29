@@ -1,0 +1,146 @@
+services:
+  # ── Application Services ──────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rs-backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      neo4j:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rs-worker
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+    command: celery -A app.workers.celery_app worker -l info -c 4 -Q default,extract,embed
+    restart: unless-stopped
+
+  crawler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rs-crawler
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+    command: celery -A app.workers.celery_app worker -l info -c 2 -Q crawl
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rs-scheduler
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - worker
+    command: celery -A app.workers.celery_app beat -l info
+    restart: unless-stopped
+
+  # ── Data Services ─────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: rs-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-researchscout}
+      POSTGRES_USER: ${POSTGRES_USER:-researchscout}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-researchscout_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-researchscout}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: rs-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rs-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: rs-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-researchscout_neo4j}
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-researchscout_neo4j} 'RETURN 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    container_name: rs-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  neo4j_data:
+  minio_data:
