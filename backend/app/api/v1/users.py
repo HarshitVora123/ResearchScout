@@ -2,11 +2,12 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, status
-from sqlalchemy import select, delete
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
+from app.models.db.opportunity import Opportunity
 from app.models.db.user import (
     User,
     UserProject,
@@ -14,6 +15,7 @@ from app.models.db.user import (
     UserResearchInterest,
     UserSkill,
 )
+from app.models.schemas.common import MessageResponse
 from app.models.schemas.user import (
     ProjectCreateRequest,
     PublicationCreateRequest,
@@ -22,7 +24,6 @@ from app.models.schemas.user import (
     UserProfileResponse,
     UserProfileUpdateRequest,
 )
-from app.models.schemas.common import MessageResponse
 
 router = APIRouter()
 
@@ -187,23 +188,253 @@ async def add_research_interest(
 
 @router.post(
     "/profile/resume",
-    response_model=MessageResponse,
-    summary="Upload resume",
+    summary="Upload resume and get eligibility analysis",
 )
 async def upload_resume(
+    user: CurrentUser,
+    db: DbSession,
     file: UploadFile = File(...),
-    user: CurrentUser = None,
-    db: DbSession = None,
 ):
-    """Upload a resume (PDF or DOCX) for parsing and profile enrichment."""
-    if file.content_type not in [
-        "application/pdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ]:
+    """
+    Upload a resume (PDF, DOCX, or TXT) for parsing, profile enrichment,
+    and eligibility analysis against all active opportunities.
+
+    Returns:
+    - parsed_profile: everything extracted from the resume
+    - profile_updates: what was added/changed on the user profile
+    - matched_opportunities: all opportunities ranked by eligibility score
+    """
+    filename = file.filename or ""
+    ext = filename.lower().split(".")[-1] if "." in filename else ""
+    if ext not in ["pdf", "docx", "txt"]:
         raise HTTPException(
             status_code=400,
-            detail="Only PDF and DOCX files are accepted",
+            detail="Only PDF, DOCX, and TXT files are supported.",
         )
 
-    # TODO: Save to MinIO and trigger LLM resume parsing
-    return MessageResponse(message="Resume uploaded successfully. Parsing will begin shortly.")
+    content_bytes = await file.read()
+    raw_text = ""
+
+    if ext == "txt":
+        raw_text = content_bytes.decode("utf-8", errors="ignore")
+    elif ext == "pdf":
+        try:
+            import io
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+            raw_text = "\n".join([page.extract_text() or "" for page in reader.pages])
+        except Exception:
+            raw_text = content_bytes.decode("utf-8", errors="ignore")
+    elif ext == "docx":
+        try:
+            import io
+            import docx
+            doc = docx.Document(io.BytesIO(content_bytes))
+            raw_text = "\n".join([p.text for p in doc.paragraphs])
+        except Exception:
+            raw_text = content_bytes.decode("utf-8", errors="ignore")
+
+    if not raw_text.strip():
+        raw_text = content_bytes.decode("utf-8", errors="ignore")
+
+    # ── Parse resume ─────────────────────────────────
+    from app.nlp.resume_parser import ResumeParser
+    parser = ResumeParser()
+    parsed = parser.parse_text(raw_text)
+
+    # ── Track profile updates ────────────────────────
+    profile_updates: dict[str, object] = {}
+
+    if parsed.university and not user.university:
+        user.university = parsed.university
+        profile_updates["university"] = parsed.university
+    if parsed.degree_level and not user.degree_level:
+        user.degree_level = parsed.degree_level
+        profile_updates["degree_level"] = parsed.degree_level
+    if parsed.gpa and not user.gpa:
+        user.gpa = parsed.gpa
+        profile_updates["gpa"] = parsed.gpa
+
+    # Add extracted skills (deduplicate)
+    existing_skills = {s.skill_name.lower() for s in (user.skills or [])}
+    new_skills: list[str] = []
+    for skill_name in parsed.skills:
+        if skill_name.lower() not in existing_skills:
+            db.add(UserSkill(user_id=user.id, skill_name=skill_name, proficiency="Intermediate"))
+            existing_skills.add(skill_name.lower())
+            new_skills.append(skill_name)
+
+    # Add extracted research interests (deduplicate)
+    existing_interests = {i.topic.lower() for i in (user.research_interests or [])}
+    new_interests: list[str] = []
+    for topic in parsed.research_interests:
+        if topic.lower() not in existing_interests:
+            db.add(UserResearchInterest(user_id=user.id, topic=topic, weight=1.0))
+            existing_interests.add(topic.lower())
+            new_interests.append(topic)
+
+    if new_skills:
+        profile_updates["skills_added"] = new_skills
+    if new_interests:
+        profile_updates["research_interests_added"] = new_interests
+
+    await db.commit()
+
+    # ── Build user profile dict for matching ─────────
+    # Refresh skills/interests to include newly added ones
+    all_user_skills = list(existing_skills)
+    all_user_interests = list(existing_interests)
+
+    user_profile = {
+        "full_name": user.full_name,
+        "degree_level": user.degree_level or parsed.degree_level,
+        "university": user.university or parsed.university,
+        "preferred_countries": user.preferred_countries or [],
+        "skills": [{"skill_name": s} for s in all_user_skills],
+        "research_interests": [{"topic": t} for t in all_user_interests],
+    }
+
+    # ── Match against all active opportunities ───────
+    import json
+
+    from app.nlp.skill_extraction import compute_skill_overlap
+    from app.ranking.recommendation_engine import RecommendationEngine
+
+    engine = RecommendationEngine()
+
+    result = await db.execute(
+        select(Opportunity)
+        .where(Opportunity.is_active == True)  # noqa: E712
+        .order_by(Opportunity.date_discovered.desc())
+        .limit(100)
+    )
+    opportunities = result.scalars().all()
+
+    matched_opportunities = []
+    for opp in opportunities:
+        # Normalize JSON list fields
+        opp_research_areas = opp.research_areas or []
+        opp_required_skills = opp.required_skills or []
+        opp_prog_langs = opp.programming_languages or []
+        opp_degree_levels = opp.degree_levels or []
+
+        # Deserialize if stored as JSON strings (SQLite compat)
+        for attr_name in ("research_areas", "required_skills", "programming_languages", "degree_levels"):
+            val = getattr(opp, attr_name, None)
+            if isinstance(val, str):
+                try:
+                    val = json.loads(val)
+                except Exception:
+                    val = []
+            if attr_name == "research_areas":
+                opp_research_areas = val or []
+            elif attr_name == "required_skills":
+                opp_required_skills = val or []
+            elif attr_name == "programming_languages":
+                opp_prog_langs = val or []
+            elif attr_name == "degree_levels":
+                opp_degree_levels = val or []
+
+        opp_data = {
+            "title": opp.title,
+            "organization": opp.organization,
+            "opportunity_type": opp.opportunity_type,
+            "country": opp.country,
+            "research_areas": opp_research_areas,
+            "required_skills": opp_required_skills,
+            "programming_languages": opp_prog_langs,
+            "degree_levels": opp_degree_levels,
+            "confidence_score": opp.confidence_score,
+            "deadline": opp.deadline.isoformat() if opp.deadline else None,
+        }
+
+        # Calculate eligibility
+        rule_score, reasons = engine.calculate_rule_score(user_profile, opp_data)
+
+        # Detailed skill overlap
+        all_required = opp_required_skills + opp_prog_langs
+        matched_skills, missing_skills, overlap_pct = compute_skill_overlap(
+            all_required, all_user_skills
+        )
+
+        # Degree fit assessment
+        user_deg = (user_profile.get("degree_level") or "").lower()
+        degree_fit = "Unknown"
+        if user_deg:
+            opp_type = opp.opportunity_type or ""
+            opp_degs_lower = [d.lower() for d in opp_degree_levels]
+            if user_deg in opp_degs_lower:
+                degree_fit = "Eligible"
+            elif (
+                ("phd" in user_deg and opp_type in ("Postdoc", "AI Residency"))
+                or ("master" in user_deg and opp_type in ("PhD", "Research Assistant", "AI Residency"))
+                or ("bachelor" in user_deg and opp_type in ("Internship", "Scholarship", "PhD", "Master"))
+            ):
+                degree_fit = "Eligible"
+            elif opp_degs_lower:
+                degree_fit = "May not match"
+            else:
+                degree_fit = "No requirement listed"
+        else:
+            degree_fit = "Degree not detected"
+
+        # Research alignment
+        user_areas = {t.lower() for t in all_user_interests}
+        opp_areas_lower = {a.lower() for a in opp_research_areas}
+        aligned_areas = []
+        for ua in user_areas:
+            for oa in opp_areas_lower:
+                if ua in oa or oa in ua:
+                    aligned_areas.append(oa.title())
+
+        # Composite eligibility score (0-100)
+        eligibility_score = int(round(rule_score * 100))
+
+        matched_opportunities.append({
+            "opportunity_id": str(opp.id),
+            "opportunity": {
+                "title": opp.title,
+                "organization": opp.organization,
+                "opportunity_type": opp.opportunity_type,
+                "country": opp.country,
+                "city": opp.city,
+                "research_areas": opp_research_areas,
+                "required_skills": opp_required_skills,
+                "funding_type": opp.funding_type,
+                "deadline": opp.deadline.isoformat() if opp.deadline else None,
+                "summary": opp.summary,
+                "application_link": opp.application_link,
+            },
+            "eligibility_score": eligibility_score,
+            "skill_match": {
+                "matched": matched_skills,
+                "missing": missing_skills,
+                "overlap_pct": int(round(overlap_pct * 100)),
+            },
+            "degree_fit": degree_fit,
+            "research_alignment": sorted(set(aligned_areas)),
+            "match_reasons": reasons,
+        })
+
+    # Sort by eligibility score descending
+    matched_opportunities.sort(key=lambda x: x["eligibility_score"], reverse=True)
+
+    return {
+        "parsed_profile": {
+            "full_name": parsed.full_name,
+            "email": parsed.email,
+            "university": parsed.university,
+            "degree_level": parsed.degree_level,
+            "major": parsed.major,
+            "gpa": parsed.gpa,
+            "experience_years": parsed.experience_years,
+            "skills": parsed.skills,
+            "programming_languages": parsed.programming_languages,
+            "research_interests": parsed.research_interests,
+            "publications": parsed.publications,
+            "projects": parsed.projects,
+        },
+        "profile_updates": profile_updates,
+        "matched_opportunities": matched_opportunities,
+    }
+

@@ -10,7 +10,7 @@ Uses a multi-level deduplication strategy:
 
 import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import structlog
 
@@ -79,7 +79,7 @@ class DedupAgent:
     and uses Qdrant for semantic similarity checks.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # In-memory MinHash index: {opportunity_id: (signature, title, org)}
         self._minhash_index: dict[str, tuple[list[int], str, str]] = {}
 

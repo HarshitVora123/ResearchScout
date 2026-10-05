@@ -4,7 +4,8 @@ Async Redis Caching Layer — decorator and utilities for API response caching.
 
 import functools
 import json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 
@@ -13,7 +14,7 @@ from app.core.redis import get_redis
 logger = structlog.get_logger(__name__)
 
 
-def cache_response(ttl_seconds: int = 300, key_prefix: str = "cache"):
+def cache_response(ttl_seconds: int = 300, key_prefix: str = "cache") -> Callable:
     """
     Decorator for caching async FastAPI endpoint responses in Redis.
 
@@ -21,9 +22,9 @@ def cache_response(ttl_seconds: int = 300, key_prefix: str = "cache"):
         ttl_seconds: Cache time-to-live in seconds (default: 5 minutes)
         key_prefix: Redis key namespace
     """
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Compose cache key from function name and sorted kwargs
             kwargs_str = json.dumps(
                 {k: str(v) for k, v in sorted(kwargs.items()) if k not in ("db", "user", "request")},

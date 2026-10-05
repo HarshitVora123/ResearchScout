@@ -29,10 +29,18 @@ async function fetchApi<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...fetchOpts,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${endpoint}`, {
+      ...fetchOpts,
+      headers,
+    });
+  } catch (err: any) {
+    throw new ApiError(
+      err.message || 'Unable to connect to backend server. Please check your network connection.',
+      503
+    );
+  }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({ detail: 'Request failed' }));
@@ -114,6 +122,78 @@ export async function updateProfile(
     token,
     body: JSON.stringify(data),
   });
+}
+
+// ── Resume Analysis Types ─────────────────────────────────────────────────────
+
+export interface ParsedProfile {
+  full_name: string | null;
+  email: string | null;
+  university: string | null;
+  degree_level: string | null;
+  major: string | null;
+  gpa: number | null;
+  experience_years: number;
+  skills: string[];
+  programming_languages: string[];
+  research_interests: string[];
+  publications: { title: string }[];
+  projects: { title: string }[];
+}
+
+export interface OpportunityMatch {
+  opportunity_id: string;
+  opportunity: {
+    title: string;
+    organization: string;
+    opportunity_type: string;
+    country: string;
+    city: string;
+    research_areas: string[];
+    required_skills: string[];
+    funding_type: string | null;
+    deadline: string | null;
+    summary: string | null;
+    application_link: string | null;
+  };
+  eligibility_score: number; // 0-100
+  skill_match: {
+    matched: string[];
+    missing: string[];
+    overlap_pct: number;
+  };
+  degree_fit: string;
+  research_alignment: string[];
+  match_reasons: string[];
+}
+
+export interface ResumeAnalysis {
+  parsed_profile: ParsedProfile;
+  profile_updates: Record<string, any>;
+  matched_opportunities: OpportunityMatch[];
+}
+
+export async function uploadResume(
+  token: string,
+  file: File
+): Promise<ResumeAnalysis> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/api/v1/users/profile/resume`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new ApiError(data.detail || 'Upload failed', res.status);
+  }
+
+  return res.json();
 }
 
 // ── Opportunities ───────────────────────────────────

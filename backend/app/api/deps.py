@@ -47,7 +47,18 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(User)
+        .where(User.id == UUID(user_id))
+        .options(
+            selectinload(User.skills),
+            selectinload(User.publications),
+            selectinload(User.projects),
+            selectinload(User.research_interests),
+        )
+    )
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -57,6 +68,7 @@ async def get_current_user(
         )
 
     return user
+
 
 
 # Type alias for dependency injection

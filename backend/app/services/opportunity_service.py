@@ -4,10 +4,10 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, delete, func, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db.crawl import CrawlHistory, CrawlSource
+from app.models.db.crawl import CrawlSource
 from app.models.db.opportunity import Opportunity
 from app.models.schemas.opportunity import ExtractedOpportunity
 
@@ -123,7 +123,7 @@ class OpportunityService:
         result = await self.db.execute(
             select(Opportunity)
             .where(
-                Opportunity.is_active == True,
+                Opportunity.is_active == True,  # noqa: E712
             )
             .order_by(Opportunity.date_discovered.desc())
             .offset(offset)
@@ -133,7 +133,7 @@ class OpportunityService:
         return [_normalize_opp(o) for o in opps]  # type: ignore
 
     async def update_opportunity(
-        self, opp_id: uuid.UUID, **kwargs
+        self, opp_id: uuid.UUID, **kwargs: object
     ) -> None:
         """Update an existing opportunity."""
         await self.db.execute(
@@ -149,20 +149,61 @@ class OpportunityService:
             .where(
                 and_(
                     Opportunity.deadline < datetime.now(UTC),
-                    Opportunity.is_expired == False,
+                    Opportunity.is_expired == False,  # noqa: E712
                     Opportunity.deadline.isnot(None),
                 )
             )
             .values(is_expired=True, is_active=False)
         )
         await self.db.commit()
-        return result.rowcount
+        return result.rowcount or 0
 
     async def count_active(self) -> int:
         """Count total active opportunities."""
         result = await self.db.execute(
             select(func.count()).where(
-                Opportunity.is_active == True,
+                Opportunity.is_active == True,  # noqa: E712
             )
         )
         return result.scalar() or 0
+
+
+class CrawlSourceService:
+    """Service for managing crawl sources and history."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create_source(
+        self,
+        url: str,
+        domain: str,
+        source_type: str = "university",
+        trust_score: float = 0.5,
+        crawl_frequency_hours: int = 168,
+        requires_js: bool = False,
+    ) -> CrawlSource:
+        """Create a new crawl source."""
+        source = CrawlSource(
+            id=uuid.uuid4(),
+            url=url,
+            domain=domain,
+            source_type=source_type,
+            trust_score=trust_score,
+            crawl_frequency_hours=crawl_frequency_hours,
+            requires_js=requires_js,
+            is_active=True,
+        )
+        self.db.add(source)
+        await self.db.flush()
+        return source
+
+    async def get_due_sources(self, limit: int = 50) -> list[CrawlSource]:
+        """Fetch active sources due for crawling."""
+        result = await self.db.execute(
+            select(CrawlSource)
+            .where(CrawlSource.is_active == True)  # noqa: E712
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+

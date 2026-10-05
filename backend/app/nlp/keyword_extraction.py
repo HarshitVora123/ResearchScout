@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass, field
 
-
 # ── Predefined Skill Taxonomy ────────────────────────
 PROGRAMMING_LANGUAGES = {
     "python", "java", "c++", "c", "r", "matlab", "julia", "scala",

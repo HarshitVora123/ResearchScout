@@ -1,10 +1,13 @@
 """Authentication endpoints — register, login, refresh tokens."""
 
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DbSession
+from app.config import get_settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -12,7 +15,6 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.config import get_settings
 from app.models.db.user import User
 from app.models.schemas.user import (
     RefreshTokenRequest,
@@ -20,7 +22,6 @@ from app.models.schemas.user import (
     UserLoginRequest,
     UserRegisterRequest,
 )
-from app.models.schemas.common import MessageResponse
 
 router = APIRouter()
 settings = get_settings()
@@ -107,7 +108,7 @@ async def refresh_token(request: RefreshTokenRequest, db: DbSession):
 
     user_id = payload.get("sub")
     result = await db.execute(
-        select(User).where(User.id == user_id)
+        select(User).where(User.id == UUID(user_id))
     )
     if not result.scalar_one_or_none():
         raise HTTPException(

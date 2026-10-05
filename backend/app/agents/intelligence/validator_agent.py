@@ -4,12 +4,10 @@ import re
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-import httpx
 import tldextract
 
 from app.models.schemas.agent import ValidationReport
 from app.models.schemas.opportunity import ExtractedOpportunity
-
 
 # ── Trusted Domain Patterns ──────────────────────────
 TRUSTED_SUFFIXES = {"edu", "ac.uk", "ac.in", "ac.jp", "ac.kr", "edu.au", "edu.sg", "edu.cn"}

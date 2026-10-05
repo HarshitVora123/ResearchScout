@@ -4,7 +4,7 @@ import math
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.db.interaction import SavedOpportunity, UserFeedback, UserInteraction
@@ -13,8 +13,8 @@ from app.models.schemas.common import FeedbackType, MessageResponse, PaginatedRe
 from app.models.schemas.opportunity import (
     OpportunityBrief,
     OpportunityDetail,
-    OpportunityFilters,
 )
+from app.services.opportunity_service import _normalize_opp
 
 router = APIRouter()
 
@@ -52,7 +52,15 @@ async def list_opportunities(
     if funding_type:
         stmt = stmt.where(Opportunity.funding_type.in_(funding_type))
     if research_area:
-        stmt = stmt.where(Opportunity.research_areas.any(research_area))
+        stmt = stmt.where(cast(Opportunity.research_areas, String).ilike(f"%{research_area}%"))
+    if query:
+        stmt = stmt.where(
+            or_(
+                Opportunity.title.ilike(f"%{query}%"),
+                Opportunity.organization.ilike(f"%{query}%"),
+                Opportunity.summary.ilike(f"%{query}%"),
+            )
+        )
 
     # Count total
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -73,7 +81,6 @@ async def list_opportunities(
     result = await db.execute(stmt)
     opportunities = result.scalars().all()
 
-    from app.services.opportunity_service import _normalize_opp
     return PaginatedResponse(
         items=[OpportunityBrief.model_validate(_normalize_opp(opp)) for opp in opportunities],
         total=total,
@@ -81,6 +88,7 @@ async def list_opportunities(
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total > 0 else 0,
     )
+
 
 
 @router.get(
@@ -92,7 +100,7 @@ async def get_trending(db: DbSession, limit: int = Query(default=10, ge=1, le=50
     """Get the most recently discovered, high-confidence opportunities."""
     result = await db.execute(
         select(Opportunity)
-        .where(Opportunity.is_active == True)
+        .where(Opportunity.is_active == True)  # noqa: E712
         .order_by(
             Opportunity.confidence_score.desc(),
             Opportunity.date_discovered.desc(),
@@ -124,7 +132,7 @@ async def get_recommendations(
     # Fetch active opportunities from DB
     result = await db.execute(
         select(Opportunity)
-        .where(Opportunity.is_active == True)
+        .where(Opportunity.is_active == True)  # noqa: E712
         .order_by(Opportunity.date_discovered.desc())
         .limit(100)
     )

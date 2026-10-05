@@ -5,24 +5,22 @@ This is the main orchestration layer that chains agents together into a
 directed graph with conditional edges and state management.
 """
 
-import asyncio
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
 
 import structlog
 
+from app.agents.discovery.crawler_agent import CrawlerAgent
 from app.agents.discovery.query_generator import generate_search_queries
 from app.agents.discovery.search_agent import SearchAgent
-from app.agents.discovery.crawler_agent import CrawlerAgent
 from app.agents.intelligence.extractor_agent import ExtractorAgent
 from app.agents.intelligence.validator_agent import ValidatorAgent
-from app.agents.tools.content_cleaner import html_to_markdown, truncate_for_llm
+from app.agents.tools.content_cleaner import truncate_for_llm
 from app.agents.tools.rate_limiter import InMemoryRateLimiter
-from app.nlp.keyword_extraction import analyze_text
-from app.nlp.deadline_parser import parse_deadline
 from app.models.schemas.agent import SearchResult
 from app.models.schemas.opportunity import ExtractedOpportunity
+from app.nlp.deadline_parser import parse_deadline
+from app.nlp.keyword_extraction import analyze_text
 
 logger = structlog.get_logger(__name__)
 
@@ -42,7 +40,7 @@ class DiscoveryPipeline:
     - As Celery tasks (for scheduled batch discovery)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.search_agent = SearchAgent()
         self.crawler_agent = CrawlerAgent()
         self.extractor = ExtractorAgent()

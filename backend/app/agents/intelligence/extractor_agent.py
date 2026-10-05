@@ -1,7 +1,6 @@
 """Extractor Agent — LLM-powered structured extraction from web content."""
 
 import json
-from typing import Any
 
 from app.config import get_settings
 from app.models.schemas.opportunity import ExtractedOpportunity
@@ -52,7 +51,7 @@ class ExtractorAgent:
     Supports multi-model fallback: Gemini Flash → GPT-4o → rule-based.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._openai_client = None
         self._google_client = None
 
@@ -168,7 +167,7 @@ class ExtractorAgent:
                 return []
 
             opportunities = []
-            for item in items:
+            for item in items or []:
                 try:
                     # Ensure source_url is set
                     item["source_url"] = item.get("source_url", source_url)

@@ -35,7 +35,7 @@ class EmbeddingAgent:
     and user profiles (for recommendation matching).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._openai_client = None
 
     async def embed_text(self, text: str) -> list[float]:
@@ -209,4 +209,6 @@ class EmbeddingAgent:
             model="text-embedding-004",
             contents=text,
         )
+        if result.embeddings is None:
+            raise RuntimeError("Gemini embedding returned None")
         return result.embeddings[0].values

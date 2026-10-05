@@ -5,12 +5,12 @@ import sqlite3
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import get_settings
@@ -21,14 +21,14 @@ sqlite3.register_adapter(dict, json.dumps)
 
 @compiles(ARRAY, "sqlite")
 @compiles(JSONB, "sqlite")
-def _compile_pg_types_sqlite(element, compiler, **kw):
+def _compile_pg_types_sqlite(element, compiler, **kw):  # type: ignore[no-untyped-def]
     return "JSON"
 
 
 settings = get_settings()
 
 db_url = settings.database_url
-engine_kwargs: dict = {"echo": settings.debug}
+engine_kwargs: dict[str, object] = {"echo": settings.debug}
 
 if "sqlite" in db_url:
     engine_kwargs["connect_args"] = {"check_same_thread": False}

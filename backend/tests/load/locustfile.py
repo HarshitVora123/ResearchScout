@@ -1,7 +1,4 @@
-"""
-Locust Performance & Load Testing Suite — tests endpoints under simulated traffic.
-Run with: locust -f tests/load/locustfile.py
-"""
+from typing import Any
 
 try:
     from locust import HttpUser, between, task
@@ -27,12 +24,12 @@ class ResearchScoutUser(HttpUser):
     @task(3)
     def view_opportunities(self):
         """Simulate browsing opportunities feed."""
-        self.client.get("/api/v1/opportunities?limit=10")
+        self.client.get("/api/v1/opportunities?page_size=10")
 
     @task(2)
     def semantic_search(self):
         """Simulate semantic search query."""
-        self.client.get("/api/v1/search/semantic?query=machine+learning+phd")
+        self.client.get("/api/v1/search/semantic?q=machine+learning+phd")
 
     @task(2)
     def graph_stats(self):
@@ -43,3 +40,4 @@ class ResearchScoutUser(HttpUser):
     def health_check(self):
         """Check system health."""
         self.client.get("/health")
+

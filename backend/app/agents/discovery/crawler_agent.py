@@ -2,7 +2,6 @@
 
 import hashlib
 import time
-from typing import Any
 
 import httpx
 from markdownify import markdownify as md
@@ -21,7 +20,7 @@ class CrawlerAgent:
     Respects robots.txt, rate limits, and anti-bot etiquette.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = httpx.AsyncClient(
             timeout=settings.crawler_timeout_seconds,
             follow_redirects=True,
@@ -122,6 +121,6 @@ class CrawlerAgent:
         except Exception:
             return ""
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up the HTTP client."""
         await self.client.aclose()

@@ -3,10 +3,11 @@ Resume Parser — extracts structured profile data from text or PDF resumes.
 
 Extracts:
 - Contact information (email, name, phone)
-- Education (university, degree level, major, GPA)
+- Education (university, degree level, major/field of study, GPA)
 - Technical skills & programming languages
 - Research interests & topics
 - Publications & projects
+- Experience years estimate
 """
 
 import re
@@ -29,7 +30,9 @@ class ParsedResume:
     phone: str | None = None
     university: str | None = None
     degree_level: str | None = None  # Bachelor, Master, PhD, Postdoc
+    major: str | None = None  # e.g. "Computer Science", "Data Science"
     gpa: float | None = None
+    experience_years: int = 0
     skills: list[str] = field(default_factory=list)
     programming_languages: list[str] = field(default_factory=list)
     research_interests: list[str] = field(default_factory=list)
@@ -56,6 +59,30 @@ UNIVERSITY_KEYWORDS = [
     "oxford", "cambridge", "iit", "tsinghua", "ntu", "nus",
 ]
 
+# Major / Field of Study patterns
+MAJOR_PATTERNS = [
+    # "B.S. in Computer Science", "Master of Data Science"
+    r"(?:in|of)\s+([\w\s&/]+?)(?:\s*(?:from|at|,|\.))",
+    # "Major: Computer Science"
+    r"(?:major|specialization|concentration|field)[:\s]+(.+?)(?:\n|,|\.)",
+    # "Computer Science and Engineering" near degree keyword
+    r"(?:degree|bachelor|master|ph\.?d|b\.?tech|m\.?tech)\w*\s+(?:in|of)\s+([\w\s&/]+?)(?:\s*(?:from|at|,|\.|$))",
+]
+
+# Common CS/Engineering majors for matching
+KNOWN_MAJORS = [
+    "computer science", "data science", "artificial intelligence",
+    "machine learning", "electrical engineering", "computer engineering",
+    "information technology", "software engineering", "statistics",
+    "mathematics", "applied mathematics", "physics", "bioinformatics",
+    "computational biology", "neuroscience", "robotics", "mechatronics",
+    "biomedical engineering", "chemical engineering", "mechanical engineering",
+    "economics", "business analytics",
+]
+
+# Experience section year patterns
+YEAR_RANGE_REGEX = r"(20\d{2})\s*[-–—]\s*(20\d{2}|present|current|now)"
+
 
 class ResumeParser:
     """Parses resume text into a structured profile."""
@@ -74,10 +101,10 @@ class ResumeParser:
             parsed.phone = phone_match.group(0)
 
         # 2. Extract name (first non-empty line or line before email)
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
         if lines:
             first_line = lines[0]
-            if len(first_line) < 50 and not "@" in first_line and not any(c in first_line for c in "0123456789"):
+            if len(first_line) < 50 and "@" not in first_line and not any(c in first_line for c in "0123456789"):
                 parsed.full_name = first_line
 
         # 3. GPA
@@ -102,13 +129,19 @@ class ResumeParser:
                 parsed.university = line[:100]
                 break
 
-        # 6. Skills & Programming Languages
+        # 6. Major / Field of Study
+        parsed.major = self._extract_major(text, lines)
+
+        # 7. Skills & Programming Languages
         from app.nlp.skill_extraction import extract_programming_languages, extract_research_areas
         parsed.skills = extract_skills(text)
         parsed.programming_languages = extract_programming_languages(text)
         parsed.research_interests = extract_research_areas(text)
 
-        # 7. Publications heuristic
+        # 8. Experience years estimate
+        parsed.experience_years = self._estimate_experience_years(text)
+
+        # 9. Publications heuristic
         pub_lines = []
         in_pub_section = False
         for line in lines:
@@ -126,11 +159,61 @@ class ResumeParser:
         for pub_text in pub_lines[:5]:
             parsed.publications.append({"title": pub_text[:200]})
 
+        # 10. Projects heuristic
+        project_lines = []
+        in_project_section = False
+        for line in lines:
+            line_lower = line.lower()
+            if "project" in line_lower and len(line) < 30:
+                in_project_section = True
+                continue
+            if in_project_section:
+                if any(sec in line_lower for sec in ["experience", "education", "publication", "skill", "award"]):
+                    in_project_section = False
+                    continue
+                if len(line) > 15:
+                    project_lines.append(line)
+
+        for proj_text in project_lines[:5]:
+            parsed.projects.append({"title": proj_text[:200]})
+
         logger.info(
             "resume_parsed",
             name=parsed.full_name,
             degree=parsed.degree_level,
+            major=parsed.major,
             skills_count=len(parsed.skills),
+            experience_years=parsed.experience_years,
         )
 
         return parsed
+
+    def _extract_major(self, text: str, lines: list[str]) -> str | None:
+        """Extract major/field of study from resume text."""
+        # Try regex patterns first
+        for pattern in MAJOR_PATTERNS:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                candidate = match.group(1).strip()
+                # Validate it looks like a real major (not too long, not too short)
+                if 3 < len(candidate) < 60:
+                    return candidate.title()
+
+        # Fallback: look for known majors in the text
+        text_lower = text.lower()
+        for major in KNOWN_MAJORS:
+            if major in text_lower:
+                return major.title()
+
+        return None
+
+    def _estimate_experience_years(self, text: str) -> int:
+        """Estimate total years of experience from date ranges in the resume."""
+        total_years = 0
+        for match in re.finditer(YEAR_RANGE_REGEX, text, re.IGNORECASE):
+            start = int(match.group(1))
+            end_str = match.group(2).lower()
+            end = 2026 if end_str in ("present", "current", "now") else int(end_str)
+            years = max(0, end - start)
+            total_years += years
+        return min(total_years, 30)  # Cap at 30 years

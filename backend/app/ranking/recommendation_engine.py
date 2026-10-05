@@ -9,7 +9,6 @@ from typing import Any
 import structlog
 
 from app.nlp.skill_extraction import compute_skill_overlap
-from app.vector.qdrant_service import QdrantService
 
 logger = structlog.get_logger(__name__)
 

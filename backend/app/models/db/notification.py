@@ -1,19 +1,16 @@
 """SQLAlchemy ORM model for notification preferences."""
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
-    DateTime,
     ForeignKey,
     String,
     UniqueConstraint,
     Uuid,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
 
 from app.core.database import Base
 
@@ -36,7 +33,7 @@ class NotificationPreference(Base):
         String(20), default="daily"
     )  # instant, daily, weekly
     config: Mapped[dict | None] = mapped_column(
-        JSONB
+        JSON
     )  # Channel-specific config (chat_id, webhook_url, etc.)
 
     def __repr__(self) -> str:

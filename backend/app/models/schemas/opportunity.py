@@ -4,16 +4,10 @@ import json
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
-
-from app.models.schemas.common import (
-    FundingType,
-    LocationType,
-    OpportunityType,
-)
+from pydantic import BaseModel, Field, field_validator
 
 
-def _robust_parse_list(v):
+def _robust_parse_list(v: object) -> list:
     if isinstance(v, str):
         try:
             parsed = json.loads(v)
@@ -60,7 +54,7 @@ class OpportunityBrief(BaseModel):
 
     @field_validator("research_areas", mode="before")
     @classmethod
-    def parse_json_list(cls, v):
+    def parse_json_list(cls, v: object) -> list:
         return _robust_parse_list(v)
 
 
@@ -114,9 +108,13 @@ class OpportunityDetail(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("research_areas", "keywords", "required_skills", "programming_languages", "degree_levels", "documents_required", mode="before")
+    @field_validator(
+        "research_areas", "keywords", "required_skills",
+        "programming_languages", "degree_levels", "documents_required",
+        mode="before",
+    )
     @classmethod
-    def parse_json_lists(cls, v):
+    def parse_json_lists(cls, v: object) -> list:
         return _robust_parse_list(v)
 
 

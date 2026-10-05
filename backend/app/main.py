@@ -28,22 +28,28 @@ async def lifespan(app: FastAPI):
 
     # Initialize Qdrant collections
     try:
+        import asyncio
+
         from app.vector.qdrant_service import QdrantService
         qdrant = QdrantService()
-        qdrant.ensure_collections()
+        await asyncio.wait_for(asyncio.to_thread(qdrant.ensure_collections), timeout=1.5)
         logger.info("qdrant_initialized")
     except Exception as e:
         logger.warning("qdrant_init_failed", error=str(e))
 
+
     # Initialize Neo4j schema
     try:
+        import asyncio
+
         from app.knowledge_graph.neo4j_service import Neo4jService
         neo4j = Neo4jService()
-        await neo4j.init_schema()
+        await asyncio.wait_for(neo4j.init_schema(), timeout=2.0)
         await neo4j.close()
         logger.info("neo4j_initialized")
     except Exception as e:
         logger.warning("neo4j_init_failed", error=str(e))
+
 
     yield
     # Shutdown

@@ -1,6 +1,5 @@
 """Qdrant vector store service — collection management, upsert, and search."""
 
-import uuid
 from typing import Any
 
 import structlog
@@ -40,7 +39,8 @@ COLLECTION_CONFIGS = {
 
 def get_qdrant_client() -> QdrantClient:
     """Create a Qdrant client instance."""
-    return QdrantClient(url=settings.qdrant_url, timeout=30)
+    return QdrantClient(url=settings.qdrant_url, timeout=2)
+
 
 
 class QdrantService:
@@ -63,12 +63,12 @@ class QdrantService:
                         distance=config["distance"],
                         on_disk=True,
                     ),
-                    on_disk_payload=config.get("on_disk_payload", True),
+                    on_disk_payload=bool(config.get("on_disk_payload", True)),
                 )
                 logger.info("collection_created", collection=name)
 
                 # Create payload indexes
-                for field_name, field_type in config.get("payload_indexes", []):
+                for field_name, field_type in list(config.get("payload_indexes", [])):
                     self.client.create_payload_index(
                         collection_name=name,
                         field_name=field_name,
@@ -117,7 +117,7 @@ class QdrantService:
         limit: int = 20,
         score_threshold: float = 0.5,
         filters: dict[str, Any] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Search for similar opportunities by vector."""
         query_filter = None
         if filters:
@@ -170,7 +170,7 @@ class QdrantService:
         limit: int = 50,
         score_threshold: float = 0.4,
         exclude_ids: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Find opportunities matching a user's profile vector."""
         query_filter = models.Filter(
             must=[
@@ -207,7 +207,7 @@ class QdrantService:
         embedding: list[float],
         threshold: float = 0.92,
         limit: int = 5,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Find near-duplicate opportunities by vector similarity."""
         results = self.client.query_points(
             collection_name=OPPORTUNITIES_COLLECTION,
@@ -221,8 +221,8 @@ class QdrantService:
             {
                 "id": str(point.id),
                 "score": point.score,
-                "title": point.payload.get("title", ""),
-                "organization": point.payload.get("organization", ""),
+                "title": (point.payload or {}).get("title", ""),
+                "organization": (point.payload or {}).get("organization", ""),
             }
             for point in results.points
         ]

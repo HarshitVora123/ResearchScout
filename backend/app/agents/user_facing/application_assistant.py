@@ -157,7 +157,7 @@ Best regards,
         ])
 
         questions_for_pi = [
-            f"What are the primary active milestones for the lab over the next 12 months?",
+            "What are the primary active milestones for the lab over the next 12 months?",
             "How do graduate students and postdocs in the group collaborate on publication submissions?",
             "What compute resources and dataset access are available for this project?",
         ]
@@ -173,7 +173,11 @@ Best regards,
             ),
         }
 
-    async def _llm_generate_cover_letter(self, user_profile: dict, opportunity: dict) -> str:
+    async def _llm_generate_cover_letter(
+        self,
+        user_profile: dict[str, Any],
+        opportunity: dict[str, Any],
+    ) -> str:
         """Generate cover letter using Gemini Flash."""
         import google.genai as genai
 
@@ -187,4 +191,4 @@ Keep it concise, compelling, and academic.
             model="gemini-2.5-flash",
             contents=prompt,
         )
-        return response.text
+        return response.text or ""

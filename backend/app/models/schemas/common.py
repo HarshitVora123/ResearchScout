@@ -1,15 +1,13 @@
 """Common Pydantic schemas shared across the API."""
 
 from datetime import UTC, datetime
-from enum import Enum
-from uuid import UUID
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-
 # ── Enums ────────────────────────────────────────────
 
-class OpportunityType(str, Enum):
+class OpportunityType(StrEnum):
     PHD = "PhD"
     MASTERS_THESIS = "Masters Thesis"
     INTERNSHIP = "Internship"
@@ -26,21 +24,21 @@ class OpportunityType(str, Enum):
     OTHER = "Other"
 
 
-class LocationType(str, Enum):
+class LocationType(StrEnum):
     REMOTE = "Remote"
     HYBRID = "Hybrid"
     ONSITE = "Onsite"
     UNKNOWN = "Unknown"
 
 
-class FundingType(str, Enum):
+class FundingType(StrEnum):
     FULLY_FUNDED = "Fully Funded"
     PARTIAL = "Partial"
     SELF_FUNDED = "Self-funded"
     UNKNOWN = "Unknown"
 
 
-class DegreeLevel(str, Enum):
+class DegreeLevel(StrEnum):
     HIGH_SCHOOL = "High School"
     UNDERGRADUATE = "Undergraduate"
     MASTERS = "Masters"
@@ -49,7 +47,7 @@ class DegreeLevel(str, Enum):
     ANY = "Any"
 
 
-class InteractionType(str, Enum):
+class InteractionType(StrEnum):
     VIEW = "view"
     SAVE = "save"
     APPLY = "apply"
@@ -57,14 +55,14 @@ class InteractionType(str, Enum):
     SHARE = "share"
 
 
-class FeedbackType(str, Enum):
+class FeedbackType(StrEnum):
     THUMBS_UP = "thumbs_up"
     THUMBS_DOWN = "thumbs_down"
     CORRECTION = "correction"
     REPORT = "report"
 
 
-class SavedStatus(str, Enum):
+class SavedStatus(StrEnum):
     SAVED = "saved"
     APPLYING = "applying"
     APPLIED = "applied"

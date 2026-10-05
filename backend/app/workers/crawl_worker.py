@@ -27,9 +27,8 @@ from app.agents.tools.content_cleaner import (
     truncate_for_llm,
 )
 from app.agents.tools.rate_limiter import InMemoryRateLimiter
-from app.nlp.keyword_extraction import analyze_text
 from app.nlp.deadline_parser import parse_deadline
-from app.nlp.skill_extraction import extract_research_areas, extract_skills
+from app.nlp.keyword_extraction import analyze_text
 from app.workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -89,7 +88,7 @@ def crawl_url(self, url: str, source_id: str | None = None, render_js: bool = Fa
 
         # ── Step 3: Clean content ────────────────
         title = extract_page_title(raw_html)
-        description = extract_meta_description(raw_html)
+        _description = extract_meta_description(raw_html)  # kept for future use
         markdown = html_to_markdown(raw_html)
 
         if len(markdown.strip()) < 100:

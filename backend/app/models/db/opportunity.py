@@ -4,11 +4,11 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Index,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,

@@ -1,7 +1,7 @@
 """Neo4j knowledge graph service — schema, entity CRUD, and relationship management."""
 
 import structlog
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from app.config import get_settings
 
@@ -68,7 +68,13 @@ class Neo4jService:
 
     async def init_schema(self) -> None:
         """Create schema constraints and indexes."""
-        driver = await self._get_driver()
+        try:
+            driver = await self._get_driver()
+            await driver.verify_connectivity()
+        except Exception as e:
+            logger.warning("neo4j_offline_skipping_schema", error=str(e))
+            return
+
         async with driver.session() as session:
             for query in SCHEMA_QUERIES:
                 try:
@@ -76,6 +82,7 @@ class Neo4jService:
                 except Exception as e:
                     logger.warning("schema_query_failed", query=query[:60], error=str(e))
         logger.info("neo4j_schema_initialized")
+
 
     # ── Entity Creation ──────────────────────────────
 

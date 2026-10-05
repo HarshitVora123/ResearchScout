@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
-    Boolean,
+    JSON,
     Date,
     DateTime,
     ForeignKey,
@@ -15,7 +15,6 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -39,8 +38,8 @@ class User(Base):
     country: Mapped[str | None] = mapped_column(Text)
 
     # ── Preferences ──────────────────────────────
-    preferred_countries: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-    preferred_domains: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    preferred_countries: Mapped[list[str] | None] = mapped_column(JSON)
+    preferred_domains: Mapped[list[str] | None] = mapped_column(JSON)
     career_goals: Mapped[str | None] = mapped_column(Text)
 
     # ── Profiles ─────────────────────────────────
@@ -131,7 +130,7 @@ class UserProject(Base):
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    technologies: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    technologies: Mapped[list[str] | None] = mapped_column(JSON)
     url: Mapped[str | None] = mapped_column(Text)
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)

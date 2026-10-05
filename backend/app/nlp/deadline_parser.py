@@ -1,7 +1,7 @@
 """Deadline parsing utilities — converts various date formats to datetime."""
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from dateutil import parser as dateutil_parser
 
@@ -47,7 +47,7 @@ def parse_deadline(text: str | None) -> datetime | None:
 
         # If no timezone, assume UTC
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
 
         # If the deadline has no time component, set to end of day
         if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
@@ -63,7 +63,7 @@ def is_deadline_valid(deadline: datetime | None) -> bool:
     """Check if a deadline is in the future (not expired)."""
     if deadline is None:
         return True  # No deadline means always valid
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return deadline > now
 
 
@@ -71,6 +71,6 @@ def days_until_deadline(deadline: datetime | None) -> int | None:
     """Calculate days until deadline. Returns None if no deadline."""
     if deadline is None:
         return None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     delta = deadline - now
     return max(0, delta.days)

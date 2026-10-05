@@ -9,8 +9,9 @@ from uuid import uuid4
 
 import structlog
 
-from app.core.database import async_session_factory, Base, engine
+from app.core.database import Base, async_session_factory, engine
 from app.core.security import hash_password
+from app.models.db.interaction import SavedOpportunity, UserFeedback, UserInteraction  # noqa: F401 — register tables
 from app.models.db.opportunity import Opportunity
 from app.models.db.user import User, UserSkill
 
@@ -149,7 +150,7 @@ SAMPLE_OPPORTUNITIES = [
 ]
 
 
-async def seed_database():
+async def seed_database() -> None:
     """Create database tables and populate sample opportunities & test user."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

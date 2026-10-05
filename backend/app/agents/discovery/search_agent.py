@@ -1,7 +1,5 @@
 """Search Agent — executes intelligent searches across multiple APIs."""
 
-import asyncio
-from typing import Any
 
 import httpx
 
@@ -24,7 +22,7 @@ class SearchAgent:
     Uses API fallback chains: Google → Bing → Tavily on failure.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = httpx.AsyncClient(timeout=15.0)
 
     async def search(
@@ -153,6 +151,6 @@ class SearchAgent:
             for item in data.get("results", [])
         ]
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up the HTTP client."""
         await self.client.aclose()

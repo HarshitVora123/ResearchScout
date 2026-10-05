@@ -4,12 +4,9 @@ import re
 
 from app.nlp.keyword_extraction import (
     ALL_SKILLS,
-    ML_FRAMEWORKS,
     PROGRAMMING_LANGUAGES,
     RESEARCH_AREAS,
-    RESEARCH_TOOLS,
 )
-
 
 # ── Skill Aliases (normalize variants to canonical form) ─
 SKILL_ALIASES: dict[str, str] = {

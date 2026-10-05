@@ -1,10 +1,8 @@
 """Per-domain rate limiter backed by Redis (token bucket algorithm)."""
 
 import time
-from urllib.parse import urlparse
 
 import tldextract
-
 
 # Domain-specific rate limits (requests per second)
 DOMAIN_RATES: dict[str, float] = {
@@ -65,7 +63,7 @@ class InMemoryRateLimiter:
     RedisRateLimiter (below). This version works for single-process.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._last_request: dict[str, float] = {}
 
     def acquire(self, url: str) -> float:

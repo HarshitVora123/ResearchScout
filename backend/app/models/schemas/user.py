@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
-
 # ── Auth Schemas ─────────────────────────────────────
 
 class UserRegisterRequest(BaseModel):

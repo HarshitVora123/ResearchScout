@@ -1,12 +1,10 @@
 """AI Assist API — Cover letter, email draft, reading list, and interview prep."""
 
-from typing import Any
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.api.deps import CurrentUser, DbSession
 from app.agents.user_facing.application_assistant import ApplicationAssistantAgent
+from app.api.deps import CurrentUser
 
 router = APIRouter(prefix="/assist", tags=["AI Assist"])
 

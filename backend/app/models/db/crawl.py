@@ -4,17 +4,16 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
+    ForeignKey,
     Integer,
-    Interval,
     Numeric,
     String,
     Text,
     Uuid,
-    ForeignKey,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -47,7 +46,7 @@ class CrawlSource(Base):
     robots_txt: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     requires_js: Mapped[bool] = mapped_column(Boolean, default=False)
-    config: Mapped[dict | None] = mapped_column(JSONB)  # Custom crawl config per source
+    config: Mapped[dict | None] = mapped_column(JSON)  # Custom crawl config per source
 
     # ── Audit ────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(

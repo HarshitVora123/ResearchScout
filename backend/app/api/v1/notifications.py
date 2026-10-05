@@ -3,8 +3,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.api.deps import CurrentUser
 from app.agents.user_facing.notifier_agent import NotifierAgent
+from app.api.deps import CurrentUser
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 

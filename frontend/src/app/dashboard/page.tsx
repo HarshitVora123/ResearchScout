@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import OpportunityCard from '@/components/OpportunityCard';
-import type { OpportunityBrief, UserProfile } from '@/lib/api';
-import { getProfile, getTrendingOpportunities, triggerDiscovery } from '@/lib/api';
+import ResumeInsights from '@/components/ResumeInsights';
+import type { OpportunityBrief, UserProfile, ResumeAnalysis } from '@/lib/api';
+import { getProfile, getTrendingOpportunities, triggerDiscovery, uploadResume } from '@/lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -20,6 +21,13 @@ export default function DashboardPage() {
   const [discovering, setDiscovering] = useState(false);
   const [discoveryMsg, setDiscoveryMsg] = useState('');
 
+  // Resume upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysis | null>(null);
+  const [resumeFileName, setResumeFileName] = useState('');
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
@@ -30,12 +38,12 @@ export default function DashboardPage() {
     async function load() {
       if (!token) return;
       try {
-        const [profileData, trendingData] = await Promise.all([
+        const [profileRes, trendingRes] = await Promise.allSettled([
           getProfile(token),
           getTrendingOpportunities(6),
         ]);
-        setProfile(profileData);
-        setTrending(trendingData);
+        if (profileRes.status === 'fulfilled') setProfile(profileRes.value);
+        if (trendingRes.status === 'fulfilled') setTrending(trendingRes.value);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       } finally {
@@ -61,6 +69,34 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleResumeFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !token) return;
+
+    setUploadingResume(true);
+    setResumeError(null);
+    setResumeAnalysis(null);
+    setResumeFileName(file.name);
+
+    try {
+      const analysis = await uploadResume(token, file);
+      setResumeAnalysis(analysis);
+
+      // Refresh profile to pick up newly added skills/interests
+      try {
+        const updatedProfile = await getProfile(token);
+        setProfile(updatedProfile);
+      } catch {
+        // Silently preserve existing profile state
+      }
+    } catch (err: any) {
+      setResumeError(err.message || 'Failed to upload resume. Please try again.');
+    } finally {
+      setUploadingResume(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
       <div className="container" style={{ padding: '60px 24px' }}>
@@ -80,7 +116,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* ── Stats Row ────────────────────── */}
+      {/* ── Stats Row ─────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '40px' }}>
         {[
           { value: profile?.skills?.length || 0, label: 'Skills' },
@@ -95,8 +131,17 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
-        {/* ── Main Column ──────────────────── */}
+      {/* ── Resume Insights Panel (shows after upload) ─ */}
+      {resumeAnalysis && (
+        <ResumeInsights
+          analysis={resumeAnalysis}
+          fileName={resumeFileName}
+          onClose={() => setResumeAnalysis(null)}
+        />
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', marginTop: resumeAnalysis ? 32 : 0 }}>
+        {/* ── Main Column ──────────────────────────────── */}
         <div>
           {/* Discovery Widget */}
           <div className="glass-card animate-in" style={{ padding: '28px', marginBottom: '24px', opacity: 0 }}>
@@ -162,7 +207,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ── Sidebar ──────────────────────── */}
+        {/* ── Sidebar ──────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Profile Card */}
           <div className="glass-card animate-in animate-delay-1" style={{ padding: '24px', opacity: 0 }}>
@@ -217,16 +262,91 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Quick Actions */}
+          {/* Quick Actions — Resume Upload Hero */}
           <div className="glass-card animate-in animate-delay-4" style={{ padding: '24px', opacity: 0 }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Quick Actions</h3>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>Upload Resume</h3>
+            <p style={{ fontSize: '13px', color: 'hsl(var(--text-muted))', marginBottom: '14px', lineHeight: 1.5 }}>
+              Upload your CV/resume to get instant eligibility analysis across all opportunities.
+            </p>
+
+            {/* Upload zone */}
+            <div
+              onClick={() => !uploadingResume && fileInputRef.current?.click()}
+              style={{
+                border: '2px dashed rgba(99,102,241,0.4)',
+                borderRadius: 14,
+                padding: '22px 16px',
+                textAlign: 'center',
+                cursor: uploadingResume ? 'wait' : 'pointer',
+                background: uploadingResume ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)',
+                transition: 'all 0.2s',
+              }}
+            >
+              {uploadingResume ? (
+                <>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    border: '3px solid rgba(99,102,241,0.2)',
+                    borderTopColor: '#6366f1',
+                    animation: 'spin 0.8s linear infinite',
+                    margin: '0 auto 10px',
+                  }} />
+                  <div style={{ fontSize: 13, color: '#818cf8', fontWeight: 600 }}>Analysing resume…</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                    Parsing skills, matching opportunities
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>📤</div>
+                  <div style={{ fontSize: 13, color: '#818cf8', fontWeight: 600 }}>
+                    {resumeAnalysis ? 'Upload another resume' : 'Click to upload'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                    PDF, DOCX or TXT
+                  </div>
+                </>
+              )}
+            </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".pdf,.docx,.txt"
+              onChange={handleResumeFileChange}
+              style={{ display: 'none' }}
+            />
+
+            {resumeError && (
+              <div style={{
+                marginTop: 12, padding: '10px 14px', borderRadius: 10,
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+                fontSize: 13, color: '#f87171',
+              }}>
+                ⚠ {resumeError}
+              </div>
+            )}
+
+            {resumeAnalysis && (
+              <div style={{
+                marginTop: 12, padding: '10px 14px', borderRadius: 10,
+                background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
+                fontSize: 13, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span>✓</span>
+                <span>
+                  Analysed — {resumeAnalysis.matched_opportunities.filter(m => m.eligibility_score >= 65).length} strong matches found
+                </span>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '16px 0' }} />
+
             <div style={{ display: 'grid', gap: '8px' }}>
               <Link href="/opportunities" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
                 📋 Browse All Opportunities
               </Link>
-              <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
-                📤 Upload Resume
-              </button>
               <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
                 ⚙️ Notification Settings
               </button>
@@ -234,6 +354,12 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

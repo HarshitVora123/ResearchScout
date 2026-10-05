@@ -76,7 +76,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-researchscout}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-researchscout}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -90,7 +90,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -118,7 +118,7 @@ services:
     volumes:
       - neo4j_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-researchscout_neo4j} 'RETURN 1'"]
+      test: [ "CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-researchscout_neo4j} 'RETURN 1'" ]
       interval: 10s
       timeout: 10s
       retries: 5
