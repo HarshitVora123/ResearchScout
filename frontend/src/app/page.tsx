@@ -65,6 +65,35 @@ export default function HomePage() {
             </Link>
           </div>
 
+          {/* Quick Search */}
+          <div className="animate-in animate-delay-2" style={{ maxWidth: '580px', margin: '24px auto 0' }}>
+            <form action="/opportunities" method="GET" style={{ display: 'flex', gap: '8px' }}>
+              <input
+                name="query"
+                type="text"
+                className="input"
+                placeholder="🔍 Search by topic (e.g., LLMs, Robotics, Bioinformatics)..."
+                style={{ background: 'hsl(var(--bg-card) / 0.8)', padding: '14px 18px', fontSize: '15px' }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ padding: '0 24px' }}>
+                Search
+              </button>
+            </form>
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: 'hsl(var(--text-muted))', alignSelf: 'center' }}>Popular:</span>
+              {['AI & LLMs', 'Robotics', 'Quantum', 'Computer Vision'].map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/opportunities?query=${encodeURIComponent(tag)}`}
+                  className="badge badge-purple"
+                  style={{ textDecoration: 'none', cursor: 'pointer', fontSize: '11px' }}
+                >
+                  {tag}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div className="hero-stats animate-in animate-delay-3">
             {stats.map((stat) => (
               <div key={stat.label} className="glass-card stat-card">
@@ -89,7 +118,7 @@ export default function HomePage() {
 
         <div className="features-grid">
           {features.map((feature, i) => (
-            <div key={feature.title} className={`glass-card feature-card animate-in animate-delay-${Math.min(i, 4)}`} style={{ opacity: 0 }}>
+            <div key={feature.title} className={`glass-card feature-card animate-in animate-delay-${Math.min(i, 4)}`}>
               <div className="feature-icon">{feature.icon}</div>
               <h3 className="feature-title">{feature.title}</h3>
               <p className="feature-desc">{feature.desc}</p>

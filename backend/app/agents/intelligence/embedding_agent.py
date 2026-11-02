@@ -68,6 +68,14 @@ class EmbeddingAgent:
             except Exception as e:
                 logger.warning("gemini_embedding_failed", error=str(e))
 
+        if embedding is not None and len(embedding) != settings.embedding_dimensions:
+            logger.warning(
+                "embedding_dimension_mismatch",
+                expected=settings.embedding_dimensions,
+                actual=len(embedding),
+            )
+            embedding = None
+
         if embedding is None:
             logger.error("all_embedding_backends_failed")
             raise RuntimeError("No embedding backend available")
@@ -206,8 +214,9 @@ class EmbeddingAgent:
 
         client = genai.Client(api_key=settings.google_api_key)
         result = client.models.embed_content(
-            model="text-embedding-004",
+            model="gemini-embedding-001",
             contents=text,
+            config={"output_dimensionality": settings.embedding_dimensions},
         )
         if result.embeddings is None:
             raise RuntimeError("Gemini embedding returned None")

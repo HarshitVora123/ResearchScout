@@ -111,15 +111,13 @@ class ExtractorAgent:
             url=url, title=title, content=content
         )
 
-        response = client.models.generate_content(
+        import asyncio
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
             model="gemini-2.5-flash",
-            contents=[
-                {"role": "user", "parts": [{"text": EXTRACTION_SYSTEM_PROMPT + "\n\n" + prompt}]}
-            ],
-            config={
-                "response_mime_type": "application/json",
-                "temperature": 0.1,
-            },
+            contents=[{"role": "user", "parts": [{"text": EXTRACTION_SYSTEM_PROMPT + "\n\n" + prompt}]}],
+            config={"response_mime_type": "application/json", "temperature": 0.1},
         )
 
         return response.text if response.text else None

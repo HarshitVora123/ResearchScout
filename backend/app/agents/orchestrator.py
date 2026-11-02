@@ -112,7 +112,7 @@ class DiscoveryPipeline:
         crawled_pages: list[dict] = []
         for url in unique_urls:
             try:
-                self.rate_limiter.wait_and_acquire(url)
+                await self.rate_limiter.wait_and_acquire_async(url)
                 crawl_result = await self.crawler_agent.crawl(url)
 
                 if crawl_result.status_code == 200 and crawl_result.markdown:
@@ -221,27 +221,33 @@ class DiscoveryPipeline:
         from app.services.opportunity_service import OpportunityService
 
         stored = 0
+        stored_ids: list[str] = []
 
         async with async_session_factory() as db:
             service = OpportunityService(db)
 
             for opp in opportunities:
-                # Dedup by source URL
-                existing = await service.find_by_source_url(opp.source_url)
-                if existing:
-                    continue
-
-                # Dedup by title + org
+                # A source page can contain multiple distinct openings; dedup by listing identity.
                 existing = await service.find_by_title_and_org(
                     opp.title, opp.organization
                 )
                 if existing:
                     continue
 
-                await service.create_from_extraction(opp)
+                db_opp = await service.create_from_extraction(opp)
+                stored_ids.append(str(db_opp.id))
                 stored += 1
 
             await db.commit()
+
+        if stored_ids:
+            from app.workers.embedding_worker import embed_opportunity
+
+            for opportunity_id in stored_ids:
+                try:
+                    embed_opportunity.delay(opportunity_id)
+                except Exception as e:
+                    logger.warning("embed_dispatch_failed", opp_id=opportunity_id, error=str(e))
 
         return stored
 

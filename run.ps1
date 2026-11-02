@@ -1,5 +1,6 @@
 param (
-    [string]$Action = "menu"
+    [string]$Action = "start"
 )
 
-python "$PSScriptRoot\run.py" $Action
+$env:PYTHONIOENCODING = "utf-8"
+python "$PSScriptRoot\run.py" $Action $args

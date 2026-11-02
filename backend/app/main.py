@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -72,10 +72,7 @@ app = FastAPI(
 # ── CORS ─────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",    # Next.js dev
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -100,7 +97,27 @@ app.include_router(v1_router)
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
     """Health check endpoint."""
-    return HealthResponse()
+    from sqlalchemy import text
+
+    from app.core.database import engine
+    from app.core.redis import get_redis
+
+    checks = {"database": "ok", "redis": "ok"}
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception:
+        checks["database"] = "unavailable"
+    try:
+        await (await get_redis()).ping()
+    except Exception:
+        checks["redis"] = "unavailable"
+    if any(value != "ok" for value in checks.values()):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "unhealthy", "checks": checks},
+        )
+    return {"status": "ok", "checks": checks}
 
 
 @app.get("/metrics", tags=["Observability"])

@@ -25,6 +25,12 @@ class OAuth2Service:
                 res = await client.get(url)
                 if res.status_code == 200:
                     data = res.json()
+                    if (
+                        not settings.google_oauth_client_id
+                        or data.get("aud") != settings.google_oauth_client_id
+                        or data.get("email_verified") not in (True, "true")
+                    ):
+                        return None
                     return {
                         "email": data.get("email"),
                         "full_name": data.get("name", data.get("email")),
@@ -47,8 +53,20 @@ class OAuth2Service:
                 res = await client.get(url, headers=headers)
                 if res.status_code == 200:
                     data = res.json()
+                    if not data.get("email"):
+                        emails_res = await client.get("https://api.github.com/user/emails", headers=headers)
+                        if emails_res.status_code != 200:
+                            return None
+                        verified = next(
+                            (item["email"] for item in emails_res.json()
+                             if item.get("verified") and item.get("primary")),
+                            None,
+                        )
+                        if not verified:
+                            return None
+                        data["email"] = verified
                     return {
-                        "email": data.get("email") or f"{data.get('login')}@users.noreply.github.com",
+                        "email": data["email"],
                         "full_name": data.get("name") or data.get("login"),
                         "github_id": str(data.get("id")),
                     }

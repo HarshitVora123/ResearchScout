@@ -50,6 +50,18 @@ export default function OpportunitiesPage() {
   }, [selectedTypes, selectedFunding, selectedCountries, search, page, sortBy]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('query') || params.get('q');
+      if (q) setSearch(q);
+      const type = params.get('type');
+      if (type) setSelectedTypes([type]);
+      const country = params.get('country');
+      if (country) setSelectedCountries([country]);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
@@ -75,7 +87,7 @@ export default function OpportunitiesPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px' }}>
         {/* ── Filters Sidebar ──────────────── */}
-        <aside className="glass-card animate-in" style={{ alignSelf: 'start', position: 'sticky', top: '80px', opacity: 0 }}>
+        <aside className="glass-card animate-in" style={{ alignSelf: 'start', position: 'sticky', top: '80px' }}>
           {/* Search */}
           <div className="filter-section">
             <input

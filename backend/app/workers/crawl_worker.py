@@ -15,7 +15,9 @@ Replaces the Week 1 stub with a production pipeline that:
 import asyncio
 import hashlib
 import time
+import urllib.robotparser
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
 import httpx
 import structlog
@@ -26,15 +28,17 @@ from app.agents.tools.content_cleaner import (
     html_to_markdown,
     truncate_for_llm,
 )
-from app.agents.tools.rate_limiter import InMemoryRateLimiter
+from app.agents.tools.rate_limiter import RedisSyncRateLimiter
+from app.config import get_settings
 from app.nlp.deadline_parser import parse_deadline
 from app.nlp.keyword_extraction import analyze_text
+from app.core.url_safety import resolve_redirect, validate_public_http_url
 from app.workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
 # Shared rate limiter across crawl tasks in this worker process
-_rate_limiter = InMemoryRateLimiter()
+_rate_limiter = RedisSyncRateLimiter(get_settings().redis_url)
 
 
 @celery_app.task(
@@ -57,31 +61,65 @@ def crawl_url(self, url: str, source_id: str | None = None, render_js: bool = Fa
         _rate_limiter.wait_and_acquire(url)
 
         # ── Step 2: Fetch the page ───────────────
+        current_url = validate_public_http_url(url)
         with httpx.Client(
             timeout=30.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={
                 "User-Agent": "ResearchScoutBot/1.0 (+https://researchscout.io/bot)",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.9",
             },
         ) as client:
-            response = client.get(url)
+            for _ in range(6):
+                parsed_url = urlparse(current_url)
+                robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
+                robots_response = client.get(robots_url)
+                if robots_response.status_code != 404:
+                    if robots_response.status_code != 200:
+                        raise PermissionError("Unable to verify robots.txt access policy")
+                    robots = urllib.robotparser.RobotFileParser()
+                    robots.set_url(robots_url)
+                    robots.parse(robots_response.text.splitlines())
+                    if not robots.can_fetch("ResearchScoutBot/1.0", current_url):
+                        raise PermissionError("Crawl disallowed by robots.txt")
+                with client.stream("GET", current_url) as response:
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        location = response.headers.get("location")
+                        if location:
+                            current_url = resolve_redirect(current_url, location)
+                            continue
+                    size_header = response.headers.get("content-length")
+                    if size_header and int(size_header) > 5 * 1024 * 1024:
+                        raise ValueError("Page exceeds the 5 MiB crawl limit")
+                    body = bytearray()
+                    for chunk in response.iter_bytes():
+                        body.extend(chunk)
+                        if len(body) > 5 * 1024 * 1024:
+                            raise ValueError("Page exceeds the 5 MiB crawl limit")
+                    raw_html = bytes(body).decode(response.encoding or "utf-8", errors="replace")
+                    response_status = response.status_code
+            else:
+                raise ValueError("Too many redirects")
 
         duration_ms = int((time.time() - start) * 1000)
-        raw_html = response.text
         content_hash = hashlib.sha256(raw_html.encode()).hexdigest()
 
-        if response.status_code != 200:
+        asyncio.run(_record_crawl_result(
+            source_id, url, response_status, content_hash, duration_ms,
+            None if response_status == 200 else f"HTTP {response_status}",
+        ))
+
+        if response_status != 200:
             logger.warning(
                 "crawl_failed",
                 url=url,
-                status=response.status_code,
+                status=response_status,
                 duration_ms=duration_ms,
             )
             return {
                 "url": url,
-                "status_code": response.status_code,
+                "status_code": response_status,
                 "opportunities": 0,
                 "duration_ms": duration_ms,
             }
@@ -282,11 +320,6 @@ async def _async_extract_and_store(
             )
 
             # ── Step 4: Dedup ────────────────────
-            existing = await service.find_by_source_url(opp.source_url)
-            if existing:
-                logger.debug("duplicate_source_url", url=opp.source_url)
-                continue
-
             existing = await service.find_by_title_and_org(
                 opp.title, opp.organization
             )
@@ -328,6 +361,49 @@ async def _async_extract_and_store(
     }
 
 
+async def _record_crawl_result(
+    source_id: str | None,
+    url: str,
+    status_code: int,
+    content_hash: str,
+    duration_ms: int,
+    error_message: str | None,
+) -> None:
+    """Persist crawl history and update the source's health counters."""
+    from uuid import UUID
+
+    from app.core.database import async_session_factory
+    from app.models.db.crawl import CrawlHistory, CrawlSource
+    from sqlalchemy import select
+
+    parsed_source_id = None
+    if source_id:
+        try:
+            parsed_source_id = UUID(source_id)
+        except ValueError:
+            parsed_source_id = None
+    async with async_session_factory() as db:
+        db.add(CrawlHistory(
+            source_id=parsed_source_id,
+            url=url,
+            status_code=status_code,
+            content_hash=content_hash,
+            duration_ms=duration_ms,
+            error_message=error_message,
+        ))
+        if parsed_source_id:
+            result = await db.execute(select(CrawlSource).where(CrawlSource.id == parsed_source_id))
+            source = result.scalar_one_or_none()
+            if source:
+                previous_count = source.total_crawls
+                previous_rate = float(source.success_rate)
+                source.total_crawls = previous_count + 1
+                source.last_crawled = datetime.now(UTC)
+                source.last_status = status_code
+                source.success_rate = (previous_rate * previous_count + (1 if status_code == 200 else 0)) / (previous_count + 1)
+        await db.commit()
+
+
 @celery_app.task(
     name="app.workers.crawl_worker.crawl_scheduled_sources",
     queue="crawl",
@@ -350,6 +426,10 @@ async def _async_crawl_scheduled() -> dict:
     async with async_session_factory() as db:
         service = CrawlSourceService(db)
         due_sources = await service.get_due_sources(limit=50)
+        dispatched_at = datetime.now(UTC)
+        for source in due_sources:
+            source.last_crawled = dispatched_at
+        await db.commit()
 
     dispatched = 0
     for source in due_sources:

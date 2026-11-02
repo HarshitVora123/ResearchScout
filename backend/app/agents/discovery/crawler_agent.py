@@ -2,11 +2,14 @@
 
 import hashlib
 import time
+import urllib.robotparser
+from urllib.parse import urlparse
 
 import httpx
 from markdownify import markdownify as md
 
 from app.config import get_settings
+from app.core.url_safety import resolve_redirect, validate_public_http_url
 from app.models.schemas.agent import CrawlResult
 
 settings = get_settings()
@@ -63,25 +66,65 @@ class CrawlerAgent:
 
     async def _crawl_static(self, url: str) -> CrawlResult:
         """Crawl a static HTML page with httpx."""
-        response = await self.client.get(url)
+        current_url = validate_public_http_url(url)
+        for _ in range(6):
+            if not await self._robots_allowed(current_url):
+                raise PermissionError("Crawl disallowed by robots.txt")
+            async with self.client.stream("GET", current_url, follow_redirects=False) as response:
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    location = response.headers.get("location")
+                    if location:
+                        current_url = resolve_redirect(current_url, location)
+                        continue
+                size_header = response.headers.get("content-length")
+                if size_header and int(size_header) > 5 * 1024 * 1024:
+                    raise ValueError("Page exceeds the 5 MiB crawl limit")
+                body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    body.extend(chunk)
+                    if len(body) > 5 * 1024 * 1024:
+                        raise ValueError("Page exceeds the 5 MiB crawl limit")
+                raw_html = bytes(body).decode(response.encoding or "utf-8", errors="replace")
+                response_url = str(response.url)
+                response_status = response.status_code
+                response_content_type = response.headers.get("content-type", "text/html")
+                response_headers = dict(response.headers)
+            break
+        else:
+            raise ValueError("Too many redirects")
 
-        raw_html = response.text
         markdown = self._html_to_markdown(raw_html)
         title = self._extract_title(raw_html)
 
         return CrawlResult(
-            url=str(response.url),
-            status_code=response.status_code,
-            content_type=response.headers.get("content-type", "text/html"),
+            url=response_url,
+            status_code=response_status,
+            content_type=response_content_type,
             raw_html=raw_html,
             markdown=markdown,
             title=title,
             metadata={
-                "final_url": str(response.url),
+                "final_url": response_url,
                 "content_length": len(raw_html),
-                "headers": dict(response.headers),
+                "headers": response_headers,
             },
         )
+
+    async def _robots_allowed(self, url: str) -> bool:
+        parsed = urlparse(url)
+        robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+        try:
+            response = await self.client.get(robots_url, follow_redirects=False)
+        except httpx.HTTPError:
+            return False
+        if response.status_code == 404:
+            return True
+        if response.status_code != 200:
+            return False
+        parser = urllib.robotparser.RobotFileParser()
+        parser.set_url(robots_url)
+        parser.parse(response.text.splitlines())
+        return parser.can_fetch(settings.crawler_user_agent, url)
 
     async def _crawl_with_js(self, url: str) -> CrawlResult:
         """

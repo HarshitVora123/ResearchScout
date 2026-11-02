@@ -11,8 +11,10 @@ settings = get_settings()
 
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password using bcrypt (truncating to 72 bytes max)."""
-    pw_bytes = password.encode("utf-8")[:72]
+    """Hash a password with bcrypt, rejecting bcrypt's ambiguous overlong inputs."""
+    pw_bytes = password.encode("utf-8")
+    if len(pw_bytes) > 72:
+        raise ValueError("Password must be no more than 72 UTF-8 bytes")
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
 
@@ -20,7 +22,9 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against its bcrypt hash."""
     try:
-        pw_bytes = plain_password.encode("utf-8")[:72]
+        pw_bytes = plain_password.encode("utf-8")
+        if len(pw_bytes) > 72:
+            return False
         hash_bytes = hashed_password.encode("utf-8")
         return bcrypt.checkpw(pw_bytes, hash_bytes)
     except Exception:

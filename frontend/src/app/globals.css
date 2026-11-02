@@ -742,7 +742,7 @@ body::before {
 }
 
 .animate-in {
-  animation: fade-in-up 0.5s var(--ease-spring) forwards;
+  animation: fade-in-up 0.5s var(--ease-spring) both;
 }
 
 .animate-delay-1 {

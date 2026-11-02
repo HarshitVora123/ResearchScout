@@ -6,14 +6,16 @@ import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import OpportunityCard from '@/components/OpportunityCard';
 import ResumeInsights from '@/components/ResumeInsights';
-import type { OpportunityBrief, UserProfile, ResumeAnalysis } from '@/lib/api';
-import { getProfile, getTrendingOpportunities, triggerDiscovery, uploadResume } from '@/lib/api';
+import type { OpportunityBrief, UserProfile, ResumeAnalysis, Recommendation } from '@/lib/api';
+import { getProfile, getTrendingOpportunities, getRecommendations, triggerDiscovery, uploadResume } from '@/lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading, token } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [trending, setTrending] = useState<OpportunityBrief[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [feedTab, setFeedTab] = useState<'recommended' | 'trending'>('recommended');
   const [loadingData, setLoadingData] = useState(true);
 
   // Discovery form state
@@ -38,12 +40,16 @@ export default function DashboardPage() {
     async function load() {
       if (!token) return;
       try {
-        const [profileRes, trendingRes] = await Promise.allSettled([
+        const [profileRes, trendingRes, recsRes] = await Promise.allSettled([
           getProfile(token),
-          getTrendingOpportunities(6),
+          getTrendingOpportunities(8),
+          getRecommendations(token, 8),
         ]);
         if (profileRes.status === 'fulfilled') setProfile(profileRes.value);
         if (trendingRes.status === 'fulfilled') setTrending(trendingRes.value);
+        if (recsRes.status === 'fulfilled' && recsRes.value?.recommendations) {
+          setRecommendations(recsRes.value.recommendations);
+        }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       } finally {
@@ -124,7 +130,7 @@ export default function DashboardPage() {
           { value: profile?.projects?.length || 0, label: 'Projects' },
           { value: profile?.research_interests?.length || 0, label: 'Interests' },
         ].map((stat, i) => (
-          <div key={stat.label} className={`glass-card stat-card animate-in animate-delay-${i}`} style={{ opacity: 0 }}>
+          <div key={stat.label} className={`glass-card stat-card animate-in animate-delay-${i}`}>
             <div className="stat-value">{stat.value}</div>
             <div className="stat-label">{stat.label}</div>
           </div>
@@ -144,7 +150,7 @@ export default function DashboardPage() {
         {/* ── Main Column ──────────────────────────────── */}
         <div>
           {/* Discovery Widget */}
-          <div className="glass-card animate-in" style={{ padding: '28px', marginBottom: '24px', opacity: 0 }}>
+          <div className="glass-card animate-in" style={{ padding: '28px', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '12px' }}>
               🔍 Discover New Opportunities
             </h2>
@@ -182,35 +188,104 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Trending Opportunities */}
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px' }}>
-            🔥 Trending Opportunities
-          </h2>
+          {/* Opportunities Feed with Tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setFeedTab('recommended')}
+                className={`btn btn-sm ${feedTab === 'recommended' ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                🎯 Matched For You ({recommendations.length})
+              </button>
+              <button
+                onClick={() => setFeedTab('trending')}
+                className={`btn btn-sm ${feedTab === 'trending' ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                🔥 Trending ({trending.length})
+              </button>
+            </div>
+          </div>
+
           {loadingData ? (
             <div style={{ display: 'grid', gap: '16px' }}>
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="skeleton" style={{ height: '180px', borderRadius: 'var(--radius-lg)' }} />
               ))}
             </div>
-          ) : trending.length > 0 ? (
-            <div style={{ display: 'grid', gap: '16px' }}>
-              {trending.map((opp, i) => (
-                <OpportunityCard key={opp.id} opportunity={opp} index={i} />
-              ))}
-            </div>
+          ) : feedTab === 'recommended' ? (
+            recommendations.length > 0 ? (
+              <div style={{ display: 'grid', gap: '16px' }}>
+                {recommendations.map((rec, i) => {
+                  const opp = rec.opportunity as OpportunityBrief;
+                  return (
+                    <div key={rec.opportunity_id || i} style={{ position: 'relative' }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '16px',
+                        zIndex: 2,
+                        background: 'rgba(99,102,241,0.15)',
+                        border: '1px solid rgba(99,102,241,0.3)',
+                        borderRadius: '20px',
+                        padding: '3px 10px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#a5b4fc',
+                      }}>
+                        {Math.round(rec.score * 100)}% Match
+                      </div>
+                      <OpportunityCard opportunity={{ ...opp, id: rec.opportunity_id || opp.id }} index={i} />
+                      {rec.match_reasons && rec.match_reasons.length > 0 && (
+                        <div style={{
+                          margin: '-8px 12px 12px 12px',
+                          padding: '8px 14px',
+                          background: 'rgba(255,255,255,0.02)',
+                          borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+                          borderLeft: '2px solid #6366f1',
+                          fontSize: '12px',
+                          color: 'hsl(var(--text-muted))',
+                        }}>
+                          💡 {rec.match_reasons[0]}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
+                <p style={{ color: 'hsl(var(--text-secondary))', marginBottom: '12px' }}>
+                  No personalized matches yet. Upload your resume or add skills in your profile to see tailored recommendations!
+                </p>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setFeedTab('trending')}
+                >
+                  View Trending Opportunities
+                </button>
+              </div>
+            )
           ) : (
-            <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
-              <p style={{ color: 'hsl(var(--text-secondary))' }}>
-                No opportunities yet. Use the discovery widget above to find some!
-              </p>
-            </div>
+            trending.length > 0 ? (
+              <div style={{ display: 'grid', gap: '16px' }}>
+                {trending.map((opp, i) => (
+                  <OpportunityCard key={opp.id} opportunity={opp} index={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
+                <p style={{ color: 'hsl(var(--text-secondary))' }}>
+                  No opportunities yet. Use the discovery widget above to find some!
+                </p>
+              </div>
+            )
           )}
         </div>
 
         {/* ── Sidebar ──────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Profile Card */}
-          <div className="glass-card animate-in animate-delay-1" style={{ padding: '24px', opacity: 0 }}>
+          <div className="glass-card animate-in animate-delay-1" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>Your Profile</h3>
             <div style={{ display: 'grid', gap: '10px', fontSize: '14px' }}>
               <div>
@@ -240,7 +315,7 @@ export default function DashboardPage() {
 
           {/* Skills */}
           {profile?.skills && profile.skills.length > 0 && (
-            <div className="glass-card animate-in animate-delay-2" style={{ padding: '24px', opacity: 0 }}>
+            <div className="glass-card animate-in animate-delay-2" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Skills</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {profile.skills.map((skill) => (
@@ -252,7 +327,7 @@ export default function DashboardPage() {
 
           {/* Research Interests */}
           {profile?.research_interests && profile.research_interests.length > 0 && (
-            <div className="glass-card animate-in animate-delay-3" style={{ padding: '24px', opacity: 0 }}>
+            <div className="glass-card animate-in animate-delay-3" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Research Interests</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {profile.research_interests.map((interest) => (
@@ -263,7 +338,7 @@ export default function DashboardPage() {
           )}
 
           {/* Quick Actions — Resume Upload Hero */}
-          <div className="glass-card animate-in animate-delay-4" style={{ padding: '24px', opacity: 0 }}>
+          <div className="glass-card animate-in animate-delay-4" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>Upload Resume</h3>
             <p style={{ fontSize: '13px', color: 'hsl(var(--text-muted))', marginBottom: '14px', lineHeight: 1.5 }}>
               Upload your CV/resume to get instant eligibility analysis across all opportunities.
@@ -347,9 +422,9 @@ export default function DashboardPage() {
               <Link href="/opportunities" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
                 📋 Browse All Opportunities
               </Link>
-              <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
+              <Link href="/dashboard/notifications" className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }}>
                 ⚙️ Notification Settings
-              </button>
+              </Link>
             </div>
           </div>
         </div>

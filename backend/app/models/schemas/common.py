@@ -77,6 +77,7 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     version: str = "0.1.0"
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    checks: dict[str, str] = Field(default_factory=dict)
 
 
 class PaginatedResponse(BaseModel):

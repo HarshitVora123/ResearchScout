@@ -1,30 +1,36 @@
 """API dependencies — auth, database sessions, and shared utilities."""
 
 from typing import Annotated
+import hmac
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.config import get_settings
 from app.core.security import decode_token
 from app.models.db.user import User
 
 
 async def get_current_user(
     authorization: Annotated[str | None, Header()] = None,
+    access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Extract and validate the current user from the JWT token."""
-    if not authorization or not authorization.startswith("Bearer "):
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    elif access_token:
+        token = access_token
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authorization header",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = authorization.split(" ", 1)[1]
     payload = decode_token(token)
 
     if payload is None:
@@ -67,6 +73,9 @@ async def get_current_user(
             detail="User not found",
         )
 
+    if payload.get("ver", 0) != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked")
+
     return user
 
 
@@ -74,3 +83,16 @@ async def get_current_user(
 # Type alias for dependency injection
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+async def require_admin(
+    user: CurrentUser,
+    admin_key: Annotated[str | None, Header(alias="X-Admin-Token")] = None,
+) -> User:
+    expected = get_settings().admin_api_key
+    if not expected or not admin_key or not hmac.compare_digest(expected, admin_key):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]

@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -203,7 +203,18 @@ class CrawlSourceService:
         result = await self.db.execute(
             select(CrawlSource)
             .where(CrawlSource.is_active == True)  # noqa: E712
-            .limit(limit)
+            .order_by(CrawlSource.last_crawled.asc().nullsfirst())
         )
-        return list(result.scalars().all())
+        now = datetime.now(UTC)
+        due = []
+        for source in result.scalars().all():
+            last_crawled = source.last_crawled
+            if last_crawled is None:
+                due.append(source)
+                continue
+            if last_crawled.tzinfo is None:
+                last_crawled = last_crawled.replace(tzinfo=UTC)
+            if last_crawled <= now - timedelta(hours=source.crawl_frequency_hours):
+                due.append(source)
+        return due[:limit]
 

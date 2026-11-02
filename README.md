@@ -13,19 +13,17 @@ ResearchScout uses 20+ autonomous AI agents to discover, extract, verify, rank, 
 └─────────────┘     └──────────────┘     └──────────────┘     └───────────┘
 ```
 
-**Frontend:** Next.js 15 (App Router) · TypeScript · TailwindCSS  
-**Backend:** FastAPI · SQLAlchemy (async) · Celery · structlog  
-**Agents:** LangGraph · Gemini 2.5 Flash · GPT-4o · spaCy  
-**Storage:** PostgreSQL · Redis · Qdrant (vectors) · Neo4j (graph) · MinIO  
-**Infra:** Docker Compose · GitHub Actions CI · Alembic migrations  
+- **Frontend:** Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS
+- **Backend:** FastAPI · SQLAlchemy (async) · Celery · structlog
+- **Agents:** LangGraph · Gemini 2.5 Flash · GPT-4o · spaCy
+- **Storage:** PostgreSQL · Redis/Celery · Qdrant (vectors) · Neo4j (graph)
+- **Infra:** Docker Compose · GitHub Actions CI · Alembic migrations
 
 ## Quick Start
 
 ### 1. Clone & Configure
 
 ```bash
-git clone https://github.com/your-org/researchscout.git
-cd researchscout
 cp .env.example .env       # Edit with your API keys
 cp frontend/.env.local.example frontend/.env.local
 ```
@@ -73,14 +71,16 @@ PostgreSQL ← Dedup ← Validator ← NLP Enrichment ← LLM Extractor
 ```
 
 1. **Query Generator** — Creates targeted queries for 8 opportunity types across 5 academic sites
-2. **Search Agent** — Multi-engine search (Google CSE + Bing + Tavily)
+2. **Search Agent** — Multi-engine search (Google CSE + Bing + Tavily, when configured)
 3. **Crawler** — Rate-limited HTTP fetching with robots.txt compliance
-4. **Content Cleaner** — HTML → markdown with boilerplate stripping
+4. **Content Cleaner** — HTML → markdown with boilerplate stripping; JavaScript rendering is not currently implemented
 5. **NLP Pre-filter** — Rule-based opportunity detection (14 regex patterns)
 6. **LLM Extractor** — Gemini Flash / GPT-4o structured extraction
-7. **Validator** — 6-check validation (domain trust, scam detection, hallucination detection)
+7. **Validator** — Heuristic validation for URL shape, domain reputation, deadlines, completeness, scam indicators, and text overlap
 8. **Dedup** — Source URL + title+org deduplication
-9. **Storage** — PostgreSQL with 35+ fields per opportunity
+9. **Storage** — PostgreSQL; vector and graph indexing run in Celery workers when configured
+
+Production Compose requires `SECRET_KEY`, `ADMIN_API_KEY`, `CORS_ORIGINS`, `POSTGRES_PASSWORD`, and `NEO4J_PASSWORD`. Set `CORS_ORIGINS` as a JSON array, for example `["https://app.example.com"]`, use unique production secrets, and configure the API credentials your deployment needs.
 
 ## API Endpoints
 

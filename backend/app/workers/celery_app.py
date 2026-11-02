@@ -62,12 +62,19 @@ celery_app.conf.update(
             "task": "app.workers.notification_worker.send_daily_digest",
             "schedule": crontab(hour=8, minute=0),  # Daily at 8 AM
         },
+        "send-deadline-reminders": {
+            "task": "app.workers.notification_worker.send_deadline_reminders",
+            "schedule": crontab(hour=9, minute=0),  # Daily at 9 AM
+        },
     },
 )
 
-# Auto-discover tasks from worker modules
-celery_app.autodiscover_tasks([
+# These are modules, not packages containing a ``tasks.py`` module. Celery's
+# autodiscovery convention therefore does not import them; explicit imports
+# ensure every decorated task is registered before a worker consumes queues.
+celery_app.conf.imports = (
     "app.workers.crawl_worker",
     "app.workers.embedding_worker",
     "app.workers.notification_worker",
-])
+    "app.workers.discovery_worker",
+)

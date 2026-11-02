@@ -34,7 +34,7 @@ async def list_opportunities(
     is_active: bool = True,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    sort_by: str = "date_discovered",
+    sort_by: str = Query(default="date_discovered", pattern="^(date_discovered|deadline|confidence_score|title|organization)$"),
     sort_order: str = "desc",
 ):
     """
@@ -68,7 +68,7 @@ async def list_opportunities(
     total = total_result.scalar() or 0
 
     # Sort
-    sort_column = getattr(Opportunity, sort_by, Opportunity.date_discovered)
+    sort_column = getattr(Opportunity, sort_by)
     if sort_order == "asc":
         stmt = stmt.order_by(sort_column.asc())
     else:
@@ -123,8 +123,8 @@ async def get_recommendations(
     """
     Get personalized opportunity recommendations for the authenticated user.
 
-    Uses Multi-Signal Scoring (vector similarity, graph connections, rule-based matching),
-    RRF rank aggregation, and MMR diversification.
+    Uses available vector and topic-graph matches alongside rule-based eligibility,
+    then diversifies results with MMR.
     """
     from app.agents.user_facing.explanation_agent import ExplanationAgent
     from app.ranking.recommendation_engine import RecommendationEngine, RecommendationItem
@@ -150,6 +150,31 @@ async def get_recommendations(
 
     engine = RecommendationEngine()
     explainer = ExplanationAgent()
+    vector_scores: dict[str, float] | None = None
+    graph_matches: set[str] | None = None
+    try:
+        from app.agents.intelligence.embedding_agent import EmbeddingAgent
+        from app.vector.qdrant_service import QdrantService
+
+        profile_text = EmbeddingAgent().compose_user_text(user_profile)
+        vector = await EmbeddingAgent().embed_text(profile_text)
+        matches = QdrantService().search_for_user(vector, limit=100)
+        vector_scores = {str(hit["id"]): float(hit["score"] or 0) for hit in matches}
+    except Exception:
+        vector_scores = None
+    if user.research_interests:
+        from app.knowledge_graph.neo4j_service import Neo4jService
+
+        graph = Neo4jService()
+        try:
+            graph_matches = set()
+            for interest in user.research_interests[:10]:
+                for match in await graph.get_topic_cluster(interest.topic, limit=100):
+                    graph_matches.add(str(match["id"]))
+        except Exception:
+            graph_matches = None
+        finally:
+            await graph.close()
     items: list[RecommendationItem] = []
 
     for opp in opportunities:
@@ -167,14 +192,15 @@ async def get_recommendations(
         }
 
         rule_score, reasons = engine.calculate_rule_score(user_profile, opp_data)
-        vector_score = 0.5  # Base score when vector DB is warming up
-        graph_score = 0.3
-
-        total_score = (
-            (vector_score * engine.vector_weight)
-            + (graph_score * engine.graph_weight)
-            + (rule_score * engine.rule_weight)
-        )
+        vector_score = vector_scores.get(str(opp.id), 0.0) if vector_scores is not None else 0.0
+        graph_score = 1.0 if graph_matches is not None and str(opp.id) in graph_matches else 0.0
+        active_weights = [(rule_score, engine.rule_weight)]
+        if vector_scores is not None:
+            active_weights.append((vector_score, engine.vector_weight))
+        if graph_matches is not None:
+            active_weights.append((graph_score, engine.graph_weight))
+        weight_total = sum(weight for _, weight in active_weights)
+        total_score = sum(score * weight for score, weight in active_weights) / weight_total
 
         match_bullets = explainer.generate_explanation(
             total_score=total_score,
@@ -272,6 +298,17 @@ async def save_opportunity(
     return MessageResponse(message="Opportunity saved")
 
 
+@router.get("/saved", response_model=list[OpportunityBrief], summary="List saved opportunities")
+async def list_saved_opportunities(user: CurrentUser, db: DbSession):
+    result = await db.execute(
+        select(Opportunity)
+        .join(SavedOpportunity, SavedOpportunity.opportunity_id == Opportunity.id)
+        .where(SavedOpportunity.user_id == user.id)
+        .order_by(SavedOpportunity.created_at.desc())
+    )
+    return [OpportunityBrief.model_validate(_normalize_opp(opp)) for opp in result.scalars().all()]
+
+
 @router.delete(
     "/{opportunity_id}/save",
     response_model=MessageResponse,
@@ -301,12 +338,16 @@ async def unsave_opportunity(
 )
 async def submit_feedback(
     opportunity_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
     feedback_type: FeedbackType,
     feedback_text: str | None = None,
-    user: CurrentUser = None,
-    db: DbSession = None,
 ):
     """Submit feedback on an opportunity (thumbs up/down, correction, report)."""
+    exists = await db.execute(select(Opportunity.id).where(Opportunity.id == opportunity_id))
+    if exists.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
     feedback = UserFeedback(
         user_id=user.id,
         opportunity_id=opportunity_id,

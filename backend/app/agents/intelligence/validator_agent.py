@@ -145,6 +145,9 @@ class ValidatorAgent:
         if deadline is None:
             return 0.5  # No deadline is neutral
 
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=UTC)
+
         now = datetime.now(UTC)
 
         if deadline < now:

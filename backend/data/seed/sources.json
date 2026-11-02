@@ -1,0 +1,402 @@
+[
+  {
+    "url": "https://research.google/careers/",
+    "domain": "google.com",
+    "source_type": "industry_lab",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://openai.com/careers/",
+    "domain": "openai.com",
+    "source_type": "industry_lab",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.anthropic.com/careers",
+    "domain": "anthropic.com",
+    "source_type": "industry_lab",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://deepmind.google/careers/",
+    "domain": "deepmind.google",
+    "source_type": "industry_lab",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://research.facebook.com/careers/",
+    "domain": "facebook.com",
+    "source_type": "industry_lab",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.microsoft.com/en-us/research/careers/",
+    "domain": "microsoft.com",
+    "source_type": "industry_lab",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://research.nvidia.com/careers",
+    "domain": "nvidia.com",
+    "source_type": "industry_lab",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.amazon.science/positions",
+    "domain": "amazon.science",
+    "source_type": "industry_lab",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://huggingface.co/jobs",
+    "domain": "huggingface.co",
+    "source_type": "industry_lab",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://stability.ai/careers",
+    "domain": "stability.ai",
+    "source_type": "industry_lab",
+    "trust_score": 0.80,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.csail.mit.edu/research/positions",
+    "domain": "mit.edu",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://cs.stanford.edu/research/opportunities",
+    "domain": "stanford.edu",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.cs.cmu.edu/academics/phd",
+    "domain": "cmu.edu",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.cs.berkeley.edu/research",
+    "domain": "berkeley.edu",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://ml.gatech.edu/research",
+    "domain": "gatech.edu",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.cs.ox.ac.uk/research/",
+    "domain": "ox.ac.uk",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.cl.cam.ac.uk/research/",
+    "domain": "cam.ac.uk",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://ethz.ch/en/the-eth-zurich/working-teaching-and-research.html",
+    "domain": "ethz.ch",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.epfl.ch/research/open-positions/",
+    "domain": "epfl.ch",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.mpi-inf.mpg.de/departments/computer-science/open-positions",
+    "domain": "mpg.de",
+    "source_type": "university",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.tudelft.nl/en/about-tu-delft/working-at-tu-delft/vacancies",
+    "domain": "tudelft.nl",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.kth.se/en/om/work-at-kth/lediga-jobb",
+    "domain": "kth.se",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.ntu.edu.sg/research/research-careers",
+    "domain": "ntu.edu.sg",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.u-tokyo.ac.jp/en/research/opportunities.html",
+    "domain": "u-tokyo.ac.jp",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://cse.iitb.ac.in/research",
+    "domain": "iitb.ac.in",
+    "source_type": "university",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.cse.iitd.ac.in/research",
+    "domain": "iitd.ac.in",
+    "source_type": "university",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.tsinghua.edu.cn/en/Research.htm",
+    "domain": "tsinghua.edu.cn",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://neurips.cc/Conferences/2025/CallForPapers",
+    "domain": "neurips.cc",
+    "source_type": "conference",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://icml.cc/",
+    "domain": "icml.cc",
+    "source_type": "conference",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://iclr.cc/",
+    "domain": "iclr.cc",
+    "source_type": "conference",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://aclanthology.org/",
+    "domain": "aclanthology.org",
+    "source_type": "conference",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://cvpr.thecvf.com/",
+    "domain": "thecvf.com",
+    "source_type": "conference",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://aaai.org/conference/aaai/",
+    "domain": "aaai.org",
+    "source_type": "conference",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://euraxess.ec.europa.eu/jobs/search",
+    "domain": "europa.eu",
+    "source_type": "aggregator",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 72,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.findaphd.com/phds/",
+    "domain": "findaphd.com",
+    "source_type": "aggregator",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 72,
+    "requires_js": true
+  },
+  {
+    "url": "https://academicpositions.com/jobs",
+    "domain": "academicpositions.com",
+    "source_type": "aggregator",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 72,
+    "requires_js": true
+  },
+  {
+    "url": "https://scholarshipdb.net/",
+    "domain": "scholarshipdb.net",
+    "source_type": "aggregator",
+    "trust_score": 0.80,
+    "crawl_frequency_hours": 168,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.academictransfer.com/en/jobs/",
+    "domain": "academictransfer.com",
+    "source_type": "aggregator",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 72
+  },
+  {
+    "url": "https://www.jobs.ac.uk/search/?activeFacet=hoursTypeFacet&hoursType=Part-time",
+    "domain": "jobs.ac.uk",
+    "source_type": "aggregator",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 72,
+    "requires_js": true
+  },
+  {
+    "url": "https://www.nsf.gov/funding/",
+    "domain": "nsf.gov",
+    "source_type": "government",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168
+  },
+  {
+    "url": "https://www.nih.gov/grants-funding",
+    "domain": "nih.gov",
+    "source_type": "government",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168
+  },
+  {
+    "url": "https://www.daad.de/en/studying-in-germany/scholarships/",
+    "domain": "daad.de",
+    "source_type": "government",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 168
+  },
+  {
+    "url": "https://erc.europa.eu/funding/starting-grants",
+    "domain": "europa.eu",
+    "source_type": "government",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.jsps.go.jp/english/e-fellow/",
+    "domain": "jsps.go.jp",
+    "source_type": "government",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.fulbright.org/programs/",
+    "domain": "fulbright.org",
+    "source_type": "fellowship_org",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.rhodeshouse.ox.ac.uk/scholarships/",
+    "domain": "ox.ac.uk",
+    "source_type": "fellowship_org",
+    "trust_score": 0.95,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://www.chevening.org/scholarships/",
+    "domain": "chevening.org",
+    "source_type": "fellowship_org",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 336
+  },
+  {
+    "url": "https://www.marshallscholarship.org/",
+    "domain": "marshallscholarship.org",
+    "source_type": "fellowship_org",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://www.gatescambridge.org/",
+    "domain": "gatescambridge.org",
+    "source_type": "fellowship_org",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://mlsys.org/",
+    "domain": "mlsys.org",
+    "source_type": "conference",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://corl2025.org/",
+    "domain": "corl2025.org",
+    "source_type": "conference",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://www.robot-learning.org/",
+    "domain": "robot-learning.org",
+    "source_type": "conference",
+    "trust_score": 0.80,
+    "crawl_frequency_hours": 720
+  },
+  {
+    "url": "https://www.mila.quebec/en/jobs/",
+    "domain": "mila.quebec",
+    "source_type": "university",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 168
+  },
+  {
+    "url": "https://vectorinstitute.ai/careers/",
+    "domain": "vectorinstitute.ai",
+    "source_type": "university",
+    "trust_score": 0.85,
+    "crawl_frequency_hours": 168
+  },
+  {
+    "url": "https://www.allenoverlander.ai/careers",
+    "domain": "allenai.org",
+    "source_type": "industry_lab",
+    "trust_score": 0.90,
+    "crawl_frequency_hours": 168
+  }
+]

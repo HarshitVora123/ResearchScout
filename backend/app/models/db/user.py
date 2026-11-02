@@ -29,6 +29,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
 
     # ── Academic ─────────────────────────────────

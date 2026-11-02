@@ -1,6 +1,7 @@
 """Per-domain rate limiter backed by Redis (token bucket algorithm)."""
 
 import time
+import asyncio
 
 import tldextract
 
@@ -65,6 +66,17 @@ class InMemoryRateLimiter:
 
     def __init__(self) -> None:
         self._last_request: dict[str, float] = {}
+        self._async_locks: dict[str, asyncio.Lock] = {}
+
+    async def wait_and_acquire_async(self, url: str) -> None:
+        """Rate limit without blocking the event loop or racing local callers."""
+        domain = get_domain(url)
+        lock = self._async_locks.setdefault(domain, asyncio.Lock())
+        async with lock:
+            wait = self.acquire(url)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_request[domain] = time.time()
 
     def acquire(self, url: str) -> float:
         """
@@ -109,29 +121,25 @@ class RedisRateLimiter:
         self.redis = redis_client
 
     async def acquire(self, url: str) -> float:
-        """Check rate limit, return wait time in seconds."""
+        """Atomically reserve a domain slot and return any required wait."""
         domain = get_domain(url)
         rate = get_rate_for_domain(domain)
         min_interval_ms = int(1000.0 / rate)
 
         key = f"ratelimit:{domain}"
         now_ms = int(time.time() * 1000)
-
-        # Try to get last request time
-        last_ms = await self.redis.get(key)
-
-        if last_ms is None:
-            await self.redis.set(key, str(now_ms), px=min_interval_ms * 2)
-            return 0.0
-
-        elapsed_ms = now_ms - int(last_ms)
-
-        if elapsed_ms >= min_interval_ms:
-            await self.redis.set(key, str(now_ms), px=min_interval_ms * 2)
-            return 0.0
-        else:
-            wait_ms = min_interval_ms - elapsed_ms
-            return wait_ms / 1000.0
+        wait_ms = await self.redis.eval(
+            "local now = tonumber(ARGV[1]); local interval = tonumber(ARGV[2]); "
+            "local slot = tonumber(redis.call('GET', KEYS[1]) or now); "
+            "if slot < now then slot = now end; "
+            "redis.call('SET', KEYS[1], slot + interval, 'PX', (slot - now) + interval * 2); "
+            "return slot - now",
+            1,
+            key,
+            now_ms,
+            min_interval_ms,
+        )
+        return max(int(wait_ms), 0) / 1000.0
 
     async def wait_and_acquire(self, url: str) -> None:
         """Block until the rate limit allows the request."""
@@ -140,9 +148,30 @@ class RedisRateLimiter:
         wait = await self.acquire(url)
         if wait > 0:
             await asyncio.sleep(wait)
+
+
+class RedisSyncRateLimiter:
+    """Redis-backed atomic reservation for synchronous Celery crawler tasks."""
+
+    def __init__(self, redis_url: str) -> None:
+        from redis import Redis
+
+        self.redis = Redis.from_url(redis_url)
+
+    def wait_and_acquire(self, url: str) -> None:
         domain = get_domain(url)
-        key = f"ratelimit:{domain}"
-        rate = get_rate_for_domain(domain)
-        min_interval_ms = int(1000.0 / rate)
+        interval_ms = int(1000.0 / get_rate_for_domain(domain))
         now_ms = int(time.time() * 1000)
-        await self.redis.set(key, str(now_ms), px=min_interval_ms * 2)
+        wait_ms = self.redis.eval(
+            "local now = tonumber(ARGV[1]); local interval = tonumber(ARGV[2]); "
+            "local slot = tonumber(redis.call('GET', KEYS[1]) or now); "
+            "if slot < now then slot = now end; "
+            "redis.call('SET', KEYS[1], slot + interval, 'PX', (slot - now) + interval * 2); "
+            "return slot - now",
+            1,
+            f"ratelimit:{domain}",
+            now_ms,
+            interval_ms,
+        )
+        if wait_ms > 0:
+            time.sleep(wait_ms / 1000)

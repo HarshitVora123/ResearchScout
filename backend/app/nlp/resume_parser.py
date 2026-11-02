@@ -12,6 +12,7 @@ Extracts:
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 import structlog
@@ -44,7 +45,7 @@ class ParsedResume:
 # Regex patterns for contact & education info
 EMAIL_REGEX = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
 PHONE_REGEX = r"(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4}"
-GPA_REGEX = r"(?:GPA|gpa|cgpa|CGPA)[:\s]*([0-3]\.\d{1,2}|4\.0{1,2}|[0-9]\.\d{1,2}\s*/\s*10(?:\.0)?)"
+GPA_REGEX = r"(?:GPA|CGPA)[:\s]*([0-9]{1,2}(?:\.\d{1,2})?)(?:\s*/\s*(10(?:\.0)?|4(?:\.0{1,2})?))?"
 
 DEGREE_PATTERNS = {
     "PhD": [r"\bph\.?d\b", r"\bdoctorate\b", r"\bdoctor of philosophy\b"],
@@ -111,8 +112,11 @@ class ResumeParser:
         gpa_match = re.search(GPA_REGEX, text, re.IGNORECASE)
         if gpa_match:
             try:
-                val_str = gpa_match.group(1).split("/")[0].strip()
-                parsed.gpa = min(float(val_str), 4.0)
+                value = float(gpa_match.group(1))
+                denominator = float(gpa_match.group(2) or 4)
+                if denominator == 10:
+                    value = value * 4 / 10
+                parsed.gpa = min(value, 4.0)
             except ValueError:
                 pass
 
@@ -179,7 +183,6 @@ class ResumeParser:
 
         logger.info(
             "resume_parsed",
-            name=parsed.full_name,
             degree=parsed.degree_level,
             major=parsed.major,
             skills_count=len(parsed.skills),
@@ -213,7 +216,7 @@ class ResumeParser:
         for match in re.finditer(YEAR_RANGE_REGEX, text, re.IGNORECASE):
             start = int(match.group(1))
             end_str = match.group(2).lower()
-            end = 2026 if end_str in ("present", "current", "now") else int(end_str)
+            end = date.today().year if end_str in ("present", "current", "now") else int(end_str)
             years = max(0, end - start)
             total_years += years
         return min(total_years, 30)  # Cap at 30 years

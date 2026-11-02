@@ -25,16 +25,24 @@ async function fetchApi<T>(
     ...(options.headers as Record<string, string>),
   };
 
-  if (token) {
+  if (token && token !== 'cookie-session') {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const send = () => fetch(`${API_BASE}${endpoint}`, {
+    ...fetchOpts,
+    credentials: 'include',
+    headers,
+  });
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${endpoint}`, {
-      ...fetchOpts,
-      headers,
-    });
+    res = await send();
+    if (res.status === 401 && endpoint !== '/api/v1/auth/refresh' && endpoint !== '/api/v1/auth/login' && endpoint !== '/api/v1/auth/register') {
+      const refreshed = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      });
+      if (refreshed.ok) res = await send();
+    }
   } catch (err: any) {
     throw new ApiError(
       err.message || 'Unable to connect to backend server. Please check your network connection.',
@@ -52,19 +60,12 @@ async function fetchApi<T>(
 
 // ── Auth ────────────────────────────────────────────
 
-export interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
-}
-
 export async function register(
   email: string,
   password: string,
   fullName: string
-): Promise<TokenResponse> {
-  return fetchApi<TokenResponse>('/api/v1/auth/register', {
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>('/api/v1/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password, full_name: fullName }),
   });
@@ -73,20 +74,46 @@ export async function register(
 export async function login(
   email: string,
   password: string
-): Promise<TokenResponse> {
-  return fetchApi<TokenResponse>('/api/v1/auth/login', {
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
 export async function refreshToken(
-  refreshTokenStr: string
-): Promise<TokenResponse> {
-  return fetchApi<TokenResponse>('/api/v1/auth/refresh', {
+  refreshTokenStr?: string
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>('/api/v1/auth/refresh', {
     method: 'POST',
-    body: JSON.stringify({ refresh_token: refreshTokenStr }),
+    body: refreshTokenStr ? JSON.stringify({ refresh_token: refreshTokenStr }) : undefined,
   });
+}
+
+export async function getSession(): Promise<{ authenticated: boolean }> {
+  return fetchApi('/api/v1/auth/session');
+}
+
+export async function logoutSession(): Promise<void> {
+  await fetchApi('/api/v1/auth/logout', { method: 'POST' });
+}
+
+export interface NotificationSettings {
+  email_enabled: boolean;
+  telegram_enabled: boolean;
+  telegram_chat_id: string | null;
+  discord_enabled: boolean;
+  discord_webhook_url: string | null;
+  daily_digest: boolean;
+  deadline_reminders: boolean;
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return fetchApi('/api/v1/notifications/settings');
+}
+
+export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+  await fetchApi('/api/v1/notifications/settings', { method: 'PUT', body: JSON.stringify(settings) });
 }
 
 // ── User ────────────────────────────────────────────
@@ -182,9 +209,8 @@ export async function uploadResume(
 
   const res = await fetch(`${API_BASE}/api/v1/users/profile/resume`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: 'include',
+    headers: token && token !== 'cookie-session' ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
 

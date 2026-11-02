@@ -4,14 +4,18 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import type { OpportunityDetail } from '@/lib/api';
-import { getOpportunityDetail } from '@/lib/api';
+import { getOpportunityDetail, saveOpportunity, unsaveOpportunity } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { typeColor, fundingColor, formatDate, deadlineLabel, daysUntil, confidenceLabel } from '@/lib/utils';
 
 export default function OpportunityDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { token, isAuthenticated } = useAuth();
   const [opp, setOpp] = useState<OpportunityDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -59,7 +63,7 @@ export default function OpportunityDetailPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
         {/* ── Main Content ──────────────── */}
-        <div className="glass-card animate-in" style={{ padding: '40px', opacity: 0 }}>
+        <div className="glass-card animate-in" style={{ padding: '40px' }}>
           {/* Header */}
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -177,16 +181,43 @@ export default function OpportunityDetailPage() {
         {/* ── Sidebar ──────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Apply Card */}
-          <div className="glass-card animate-in animate-delay-1" style={{ padding: '28px', opacity: 0 }}>
+          <div className="glass-card animate-in animate-delay-1" style={{ padding: '28px' }}>
             <a
               href={opp.application_link}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-primary btn-lg"
-              style={{ width: '100%', marginBottom: '16px' }}
+              style={{ width: '100%', marginBottom: '12px' }}
             >
               Apply Now ↗
             </a>
+
+            {isAuthenticated && (
+              <button
+                onClick={async () => {
+                  if (!token || saving) return;
+                  setSaving(true);
+                  try {
+                    if (saved) {
+                      await unsaveOpportunity(id, token);
+                      setSaved(false);
+                    } else {
+                      await saveOpportunity(id, token);
+                      setSaved(true);
+                    }
+                  } catch {
+                    // ignore
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className={`btn ${saved ? 'btn-accent' : 'btn-secondary'} btn-lg`}
+                style={{ width: '100%', marginBottom: '16px' }}
+              >
+                {saved ? '★ Saved to Bookmarks' : '☆ Save Opportunity'}
+              </button>
+            )}
 
             {opp.deadline && (
               <div style={{ textAlign: 'center', marginBottom: '12px' }}>
@@ -219,7 +250,7 @@ export default function OpportunityDetailPage() {
 
           {/* Documents Required */}
           {opp.documents_required.length > 0 && (
-            <div className="glass-card animate-in animate-delay-2" style={{ padding: '24px', opacity: 0 }}>
+            <div className="glass-card animate-in animate-delay-2" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'hsl(var(--text-secondary))' }}>
                 Documents Required
               </h3>
@@ -232,7 +263,7 @@ export default function OpportunityDetailPage() {
           )}
 
           {/* Metadata */}
-          <div className="glass-card animate-in animate-delay-3" style={{ padding: '24px', opacity: 0 }}>
+          <div className="glass-card animate-in animate-delay-3" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'hsl(var(--text-secondary))' }}>
               Metadata
             </h3>

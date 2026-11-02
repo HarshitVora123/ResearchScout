@@ -60,6 +60,10 @@ async def text_search(
                 Opportunity.summary.ilike(search_term),
                 Opportunity.country.ilike(search_term),
                 Opportunity.opportunity_type.ilike(search_term),
+                Opportunity.department.ilike(search_term),
+                Opportunity.professor.ilike(search_term),
+                Opportunity.department.ilike(search_term),
+                Opportunity.professor.ilike(search_term),
             ),
         )
     )
@@ -124,7 +128,7 @@ async def semantic_search(
             query_vector=query_vector,
             limit=limit,
             score_threshold=0.35,
-            filters=filters if len(filters) > 1 else {"is_active": True},
+            filters=filters,
         )
 
         return {
@@ -135,8 +139,8 @@ async def semantic_search(
     except Exception as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Semantic search is currently unavailable. The vector search service (Qdrant) or embedding API is not accessible. Error: {type(e).__name__}: {str(e)[:200]}. Use the basic text search endpoint (/api/v1/search/?q=...) instead.",
-        )
+            detail="Semantic search is temporarily unavailable. Use the basic text search endpoint instead.",
+        ) from e
 
 
 @router.get("/similar/{opportunity_id}")
@@ -182,7 +186,4 @@ async def find_similar(
             "total": len(results),
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Similar search unavailable. Qdrant vector store is not running. Error: {type(e).__name__}: {str(e)[:200]}",
-        )
+        raise HTTPException(status_code=503, detail="Similar search is temporarily unavailable.") from e

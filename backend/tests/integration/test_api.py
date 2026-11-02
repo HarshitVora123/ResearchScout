@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_register(client: AsyncClient):
-    """Test user registration returns JWT tokens."""
+    """Test registration issues HttpOnly session cookies."""
     response = await client.post(
         "/api/v1/auth/register",
         json={
@@ -16,10 +16,10 @@ async def test_register(client: AsyncClient):
         },
     )
     assert response.status_code == 201
-    data = response.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
+    assert response.json()["message"] == "Registration successful"
+    cookies = response.headers.get_list("set-cookie")
+    assert any(cookie.startswith("access_token=") and "httponly" in cookie.lower() for cookie in cookies)
+    assert any(cookie.startswith("refresh_token=") and "httponly" in cookie.lower() for cookie in cookies)
 
 
 @pytest.mark.asyncio
@@ -61,8 +61,8 @@ async def test_login_success(client: AsyncClient):
         },
     )
     assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
+    assert response.json()["message"] == "Login successful"
+    assert any(cookie.startswith("access_token=") and "httponly" in cookie.lower() for cookie in response.headers.get_list("set-cookie"))
 
 
 @pytest.mark.asyncio

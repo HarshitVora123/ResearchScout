@@ -1,12 +1,15 @@
 """Pipeline admin endpoints — trigger discovery runs and manage crawl sources."""
 
 import json
+import asyncio
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.config import get_settings
+from app.core.url_safety import validate_public_http_url
 from app.models.schemas.common import MessageResponse
 
 router = APIRouter()
@@ -66,7 +69,6 @@ class CrawlSourceCreate(BaseModel):
 )
 async def trigger_discovery(
     request: DiscoveryRequest,
-    background_tasks: BackgroundTasks,
     user: CurrentUser,
 ):
     """
@@ -81,22 +83,14 @@ async def trigger_discovery(
 
     Results are stored in the database asynchronously.
     """
-    # Import here to avoid circular imports
-    from app.agents.orchestrator import DiscoveryPipeline
+    from app.workers.discovery_worker import run_discovery
 
-    async def run_pipeline():
-        pipeline = DiscoveryPipeline()
-        try:
-            await pipeline.run(
-                topics=request.topics,
-                opportunity_types=request.opportunity_types,
-                max_urls=request.max_urls,
-                search_engines=request.search_engines,
-            )
-        finally:
-            await pipeline.close()
-
-    background_tasks.add_task(run_pipeline)
+    run_discovery.delay(
+        topics=request.topics,
+        opportunity_types=request.opportunity_types,
+        max_urls=request.max_urls,
+        search_engines=request.search_engines,
+    )
 
     return MessageResponse(
         message=f"Discovery pipeline started for topics: {', '.join(request.topics)}. "
@@ -111,13 +105,15 @@ async def trigger_discovery(
 )
 async def trigger_discovery_sync(
     request: DiscoveryRequest,
-    user: CurrentUser,
+    user: AdminUser,
 ):
     """
     Run the discovery pipeline synchronously and return results.
 
     Use for development/testing. For production, use the async endpoint.
     """
+    if get_settings().is_production:
+        raise HTTPException(status_code=404, detail="Not found")
     from app.agents.orchestrator import DiscoveryPipeline
 
     pipeline = DiscoveryPipeline()
@@ -141,9 +137,13 @@ async def trigger_discovery_sync(
 )
 async def crawl_single_url(
     url: str,
-    user: CurrentUser,
+    user: AdminUser,
 ):
     """Queue a single URL for crawling via Celery."""
+    try:
+        await asyncio.to_thread(validate_public_http_url, url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     from app.workers.crawl_worker import crawl_url
 
     crawl_url.delay(url=url)
@@ -153,34 +153,37 @@ async def crawl_single_url(
 @router.post(
     "/sources/seed",
     response_model=MessageResponse,
-    summary="Load seed sources from data/seed/sources.json",
+    summary="Load seed sources from backend/data/seed/sources.json",
 )
-async def seed_sources(db: DbSession, user: CurrentUser):
+async def seed_sources(db: DbSession, user: AdminUser):
     """Load initial crawl sources from the seed file."""
     from app.services.opportunity_service import CrawlSourceService
 
-    seed_path = Path(__file__).parents[4] / "data" / "seed" / "sources.json"
+    seed_path = Path(__file__).parents[3] / "data" / "seed" / "sources.json"
     if not seed_path.exists():
         raise HTTPException(status_code=404, detail="Seed file not found")
 
-    with open(seed_path) as f:
+    with open(seed_path, encoding="utf-8") as f:
         sources = json.load(f)
 
     service = CrawlSourceService(db)
     created = 0
 
+    from sqlalchemy.exc import IntegrityError
+
     for source_data in sources:
         try:
-            await service.create_source(
-                url=source_data["url"],
-                domain=source_data["domain"],
-                source_type=source_data.get("source_type", "university"),
-                trust_score=source_data.get("trust_score", 0.5),
-                crawl_frequency_hours=source_data.get("crawl_frequency_hours", 168),
-                requires_js=source_data.get("requires_js", False),
-            )
+            async with db.begin_nested():
+                await service.create_source(
+                    url=source_data["url"],
+                    domain=source_data["domain"],
+                    source_type=source_data.get("source_type", "university"),
+                    trust_score=source_data.get("trust_score", 0.5),
+                    crawl_frequency_hours=source_data.get("crawl_frequency_hours", 168),
+                    requires_js=source_data.get("requires_js", False),
+                )
             created += 1
-        except Exception:
+        except IntegrityError:
             # Skip duplicates
             continue
 
@@ -196,11 +199,15 @@ async def seed_sources(db: DbSession, user: CurrentUser):
 async def add_crawl_source(
     request: CrawlSourceCreate,
     db: DbSession,
-    user: CurrentUser,
+    user: AdminUser,
 ):
     """Add a new URL to the crawl source registry."""
     from app.services.opportunity_service import CrawlSourceService
 
+    try:
+        await asyncio.to_thread(validate_public_http_url, request.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     service = CrawlSourceService(db)
     await service.create_source(
         url=request.url,
@@ -220,7 +227,7 @@ async def add_crawl_source(
     status_code=status.HTTP_202_ACCEPTED,
     summary="Trigger scheduled crawl of all due sources",
 )
-async def trigger_scheduled_crawl(user: CurrentUser):
+async def trigger_scheduled_crawl(user: AdminUser):
     """Manually trigger the scheduled crawl (normally runs every 6 hours)."""
     from app.workers.crawl_worker import crawl_scheduled_sources
 

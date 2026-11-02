@@ -49,6 +49,7 @@ dependencies = [
 
     # Parsing
     "pymupdf>=1.25",
+    "pypdf>=5.1",
     "python-docx>=1.1",
 
     # Dedup

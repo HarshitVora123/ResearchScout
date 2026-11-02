@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { login as apiLogin, register as apiRegister, type TokenResponse } from '@/lib/api';
+import { getSession, login as apiLogin, logoutSession, register as apiRegister } from '@/lib/api';
 
 interface AuthState {
   token: string | null;
@@ -33,24 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
 
-  // Load from localStorage on mount
+  // The session is held in HttpOnly cookies and cannot be read by page scripts.
   useEffect(() => {
-    const token = localStorage.getItem('rs_access_token');
-    const refreshToken = localStorage.getItem('rs_refresh_token');
-    setState({
-      token,
-      refreshToken,
-      isAuthenticated: !!token,
-      isLoading: false,
-    });
+    getSession()
+      .then(() => setState({ token: 'cookie-session', refreshToken: null, isAuthenticated: true, isLoading: false }))
+      .catch(() => setState({ token: null, refreshToken: null, isAuthenticated: false, isLoading: false }));
   }, []);
 
-  const handleTokens = useCallback((data: TokenResponse) => {
-    localStorage.setItem('rs_access_token', data.access_token);
-    localStorage.setItem('rs_refresh_token', data.refresh_token);
+  const handleLogin = useCallback(() => {
     setState({
-      token: data.access_token,
-      refreshToken: data.refresh_token,
+      token: 'cookie-session',
+      refreshToken: null,
       isAuthenticated: true,
       isLoading: false,
     });
@@ -58,23 +51,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const data = await apiLogin(email, password);
-      handleTokens(data);
+      await apiLogin(email, password);
+      handleLogin();
     },
-    [handleTokens]
+    [handleLogin]
   );
 
   const register = useCallback(
     async (email: string, password: string, fullName: string) => {
-      const data = await apiRegister(email, password, fullName);
-      handleTokens(data);
+      await apiRegister(email, password, fullName);
+      handleLogin();
     },
-    [handleTokens]
+    [handleLogin]
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem('rs_access_token');
-    localStorage.removeItem('rs_refresh_token');
+    void logoutSession();
     setState({
       token: null,
       refreshToken: null,

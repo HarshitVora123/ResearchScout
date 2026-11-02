@@ -97,7 +97,7 @@ async def crawl_node(state: DiscoveryState) -> dict[str, Any]:
     for item in search_results:
         url = item.get("url", "")
         try:
-            rate_limiter.wait_and_acquire(url)
+            await rate_limiter.wait_and_acquire_async(url)
             res = await crawler.crawl(url)
             if res.status_code == 200 and res.markdown:
                 pages.append({
@@ -189,12 +189,7 @@ async def store_node(state: DiscoveryState) -> dict[str, Any]:
         for opp_dict in valid_dicts:
             opp = ExtractedOpportunity(**opp_dict)
 
-            # Dedup by URL
-            existing = await service.find_by_source_url(opp.source_url)
-            if existing:
-                continue
-
-            # Dedup by title + org
+            # A source page can contain multiple distinct openings; dedup by listing identity.
             existing = await service.find_by_title_and_org(opp.title, opp.organization)
             if existing:
                 continue

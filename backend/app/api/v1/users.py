@@ -212,7 +212,9 @@ async def upload_resume(
             detail="Only PDF, DOCX, and TXT files are supported.",
         )
 
-    content_bytes = await file.read()
+    content_bytes = await file.read(10 * 1024 * 1024 + 1)
+    if len(content_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Resume file must be 10 MiB or smaller")
     raw_text = ""
 
     if ext == "txt":
@@ -222,17 +224,21 @@ async def upload_resume(
             import io
             import pypdf
             reader = pypdf.PdfReader(io.BytesIO(content_bytes))
-            raw_text = "\n".join([page.extract_text() or "" for page in reader.pages])
-        except Exception:
-            raw_text = content_bytes.decode("utf-8", errors="ignore")
+            if len(reader.pages) > 100:
+                raise HTTPException(status_code=413, detail="Resume PDF cannot exceed 100 pages")
+            raw_text = "\n".join((page.extract_text() or "") for page in reader.pages)[:100_000]
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="The uploaded PDF could not be read") from exc
     elif ext == "docx":
         try:
             import io
             import docx
             doc = docx.Document(io.BytesIO(content_bytes))
             raw_text = "\n".join([p.text for p in doc.paragraphs])
-        except Exception:
-            raw_text = content_bytes.decode("utf-8", errors="ignore")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="The uploaded DOCX could not be read") from exc
 
     if not raw_text.strip():
         raw_text = content_bytes.decode("utf-8", errors="ignore")

@@ -1,12 +1,21 @@
 """Authentication endpoints — register, login, refresh tokens."""
 
 from uuid import UUID
+from secrets import token_urlsafe
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import DbSession
+from app.api.deps import CurrentUser, DbSession
+from app.core.auth_throttle import (
+    MAX_FAILED_LOGINS,
+    MAX_REGISTRATIONS,
+    check_auth_rate,
+    clear_auth_rate,
+)
 from app.config import get_settings
 from app.core.security import (
     create_access_token,
@@ -18,23 +27,38 @@ from app.core.security import (
 from app.models.db.user import User
 from app.models.schemas.user import (
     RefreshTokenRequest,
-    TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
 )
+from app.models.schemas.common import MessageResponse
 
 router = APIRouter()
 settings = get_settings()
 
 
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    response.set_cookie(
+        "access_token", access_token, httponly=True, secure=settings.is_production,
+        samesite="lax", max_age=settings.jwt_access_token_expire_minutes * 60, path="/",
+    )
+    response.set_cookie(
+        "refresh_token", refresh_token, httponly=True, secure=settings.is_production,
+        samesite="lax", max_age=settings.jwt_refresh_token_expire_days * 86400,
+        path="/",
+    )
+
+
 @router.post(
     "/register",
-    response_model=TokenResponse,
+    response_model=MessageResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
 )
-async def register(request: UserRegisterRequest, db: DbSession):
+async def register(request: UserRegisterRequest, db: DbSession, response: Response, http_request: Request):
     """Register a new user account and return JWT tokens."""
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    if not await check_auth_rate(f"register:{client_ip}", MAX_REGISTRATIONS):
+        raise HTTPException(status_code=429, detail="Too many registration attempts. Try again later.")
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == request.email))
     if result.scalar_one_or_none():
@@ -50,27 +74,32 @@ async def register(request: UserRegisterRequest, db: DbSession):
         full_name=request.full_name,
     )
     db.add(user)
-    await db.flush()  # Get the generated ID
+    try:
+        await db.flush()  # Get the generated ID
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered") from exc
 
     # Generate tokens
-    token_data = {"sub": str(user.id)}
+    token_data = {"sub": str(user.id), "ver": user.token_version}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
-    )
+    _set_auth_cookies(response, access_token, refresh_token)
+    return MessageResponse(message="Registration successful")
 
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
+    response_model=MessageResponse,
     summary="Login with email and password",
 )
-async def login(request: UserLoginRequest, db: DbSession):
+async def login(request: UserLoginRequest, db: DbSession, response: Response, http_request: Request):
     """Authenticate user and return JWT tokens."""
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    throttle_key = f"login:{client_ip}:{request.email.casefold()}"
+    if not await check_auth_rate(throttle_key, MAX_FAILED_LOGINS):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     result = await db.execute(select(User).where(User.email == request.email))
     user = result.scalar_one_or_none()
 
@@ -80,25 +109,30 @@ async def login(request: UserLoginRequest, db: DbSession):
             detail="Invalid email or password",
         )
 
-    token_data = {"sub": str(user.id)}
+    await clear_auth_rate(throttle_key)
+
+    token_data = {"sub": str(user.id), "ver": user.token_version}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
-    )
+    _set_auth_cookies(response, access_token, refresh_token)
+    return MessageResponse(message="Login successful")
 
 
 @router.post(
     "/refresh",
-    response_model=TokenResponse,
+    response_model=MessageResponse,
     summary="Refresh an access token",
 )
-async def refresh_token(request: RefreshTokenRequest, db: DbSession):
+async def refresh_token(
+    http_request: Request,
+    response: Response,
+    db: DbSession,
+    request: RefreshTokenRequest | None = None,
+):
     """Exchange a refresh token for a new access token."""
-    payload = decode_token(request.refresh_token)
+    token = (request.refresh_token if request else None) or http_request.cookies.get("refresh_token")
+    payload = decode_token(token) if token else None
 
     if payload is None or payload.get("type") != "refresh":
         raise HTTPException(
@@ -110,34 +144,53 @@ async def refresh_token(request: RefreshTokenRequest, db: DbSession):
     result = await db.execute(
         select(User).where(User.id == UUID(user_id))
     )
-    if not result.scalar_one_or_none():
+    user = result.scalar_one_or_none()
+    if not user or payload.get("ver", 0) != user.token_version:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
 
-    token_data = {"sub": user_id}
+    current_version = user.token_version
+    next_version = current_version + 1
+    updated = await db.execute(
+        update(User).where(User.id == user.id, User.token_version == current_version)
+        .values(token_version=User.token_version + 1)
+    )
+    if updated.rowcount != 1:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token was already used")
+    token_data = {"sub": user_id, "ver": next_version}
     access_token = create_access_token(token_data)
     new_refresh_token = create_refresh_token(token_data)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
-    )
+    _set_auth_cookies(response, access_token, new_refresh_token)
+    return MessageResponse(message="Session refreshed")
+
+
+@router.get("/session")
+async def session(user: CurrentUser):
+    return {"authenticated": True}
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(response: Response, user: CurrentUser, db: DbSession):
+    user.token_version += 1
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    return MessageResponse(message="Logged out")
 
 
 class OAuthLoginRequest(BaseModel):
     token: str
-    provider: str  # "google" or "github"
+    provider: Literal["google", "github"]
 
 
 @router.post(
     "/oauth",
-    response_model=TokenResponse,
+    response_model=MessageResponse,
     summary="Login or register via OAuth2 (Google/GitHub)",
 )
-async def oauth_login(request: OAuthLoginRequest, db: DbSession):
+async def oauth_login(request: OAuthLoginRequest, db: DbSession, response: Response):
     """Authenticate or register user via Google or GitHub OAuth2."""
     from app.core.oauth import OAuth2Service
 
@@ -163,19 +216,16 @@ async def oauth_login(request: OAuthLoginRequest, db: DbSession):
         # Create new user via OAuth
         user = User(
             email=profile["email"],
-            password_hash=hash_password(f"oauth_{request.provider}_{profile['email']}"),
+            password_hash=hash_password(token_urlsafe(32)),
             full_name=profile["full_name"],
         )
         db.add(user)
         await db.flush()
 
-    token_data = {"sub": str(user.id)}
+    token_data = {"sub": str(user.id), "ver": user.token_version}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
-    )
+    _set_auth_cookies(response, access_token, refresh_token)
+    return MessageResponse(message="Login successful")
 

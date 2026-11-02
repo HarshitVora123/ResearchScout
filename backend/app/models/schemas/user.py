@@ -2,8 +2,9 @@
 
 from datetime import date, datetime
 from uuid import UUID
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ── Auth Schemas ─────────────────────────────────────
 
@@ -14,12 +15,26 @@ class UserRegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., min_length=1, max_length=200)
 
+    @field_validator("password")
+    @classmethod
+    def bcrypt_byte_limit(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be no more than 72 UTF-8 bytes")
+        return value
+
 
 class UserLoginRequest(BaseModel):
     """Login request."""
 
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def bcrypt_byte_limit(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be no more than 72 UTF-8 bytes")
+        return value
 
 
 class TokenResponse(BaseModel):
@@ -78,6 +93,16 @@ class UserProfileUpdateRequest(BaseModel):
     career_goals: str | None = None
     linkedin_url: str | None = None
     github_url: str | None = None
+
+    @field_validator("linkedin_url", "github_url")
+    @classmethod
+    def validate_profile_urls(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("URL must be an absolute HTTP(S) URL")
+        return value
 
 
 # ── Skill Schemas ────────────────────────────────────
