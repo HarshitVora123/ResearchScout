@@ -9,8 +9,11 @@ def html_to_markdown(html: str) -> str:
     """Convert raw HTML to clean markdown, stripping noise."""
     try:
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(html, "html.parser")
-        for element in soup(["script", "style", "nav", "footer", "header", "aside", "iframe", "noscript"]):
+        for element in soup(
+            ["script", "style", "nav", "footer", "header", "aside", "iframe", "noscript"]
+        ):
             element.decompose()
         clean_html = str(soup)
 

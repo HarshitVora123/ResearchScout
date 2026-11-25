@@ -11,6 +11,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.10",
+    "email-validator>=2.2",
     "pydantic-settings>=2.6",
     "python-multipart>=0.0.18",
 
@@ -27,7 +28,7 @@ dependencies = [
     "redis>=5.2",
 
     # Vector DB
-    "qdrant-client>=1.12",
+    "qdrant-client>=1.14,<1.15",
 
     # Graph DB
     "neo4j>=5.26",
@@ -36,11 +37,6 @@ dependencies = [
     "openai>=1.60",
     "google-genai>=1.5",
 
-    # NLP
-    "spacy>=3.8",
-    "keybert>=0.8",
-    "sentence-transformers>=3.4",
-
     # Crawling
     "httpx>=0.28",
     "beautifulsoup4>=4.12",
@@ -48,14 +44,10 @@ dependencies = [
     "markdownify>=0.14",
 
     # Parsing
-    "pymupdf>=1.25",
     "pypdf>=5.1",
     "python-docx>=1.1",
 
     # Dedup
-    "datasketch>=1.6",
-    "rapidfuzz>=3.10",
-
     # Task Queue
     "celery[redis]>=5.4",
 

@@ -54,12 +54,17 @@ class OAuth2Service:
                 if res.status_code == 200:
                     data = res.json()
                     if not data.get("email"):
-                        emails_res = await client.get("https://api.github.com/user/emails", headers=headers)
+                        emails_res = await client.get(
+                            "https://api.github.com/user/emails", headers=headers
+                        )
                         if emails_res.status_code != 200:
                             return None
                         verified = next(
-                            (item["email"] for item in emails_res.json()
-                             if item.get("verified") and item.get("primary")),
+                            (
+                                item["email"]
+                                for item in emails_res.json()
+                                if item.get("verified") and item.get("primary")
+                            ),
                             None,
                         )
                         if not verified:

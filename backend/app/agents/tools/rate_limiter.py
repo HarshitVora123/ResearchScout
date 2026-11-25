@@ -1,7 +1,7 @@
 """Per-domain rate limiter backed by Redis (token bucket algorithm)."""
 
-import time
 import asyncio
+import time
 
 import tldextract
 

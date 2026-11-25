@@ -526,11 +526,37 @@ export default function ResumeInsights({ analysis, fileName, onClose }: Props) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {profile.projects.map((proj, i) => (
                     <div key={i} style={{
-                      fontSize: 13, color: '#94a3b8', padding: '8px 12px',
+                      color: '#94a3b8', padding: '12px 14px',
                       background: 'rgba(255,255,255,0.03)', borderRadius: 8,
                       borderLeft: '2px solid #8b5cf6',
                     }}>
-                      {proj.title}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <strong style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.5 }}>
+                          {proj.title}
+                        </strong>
+                        {proj.status && (
+                          <span style={{ color: '#c084fc', fontSize: 11, whiteSpace: 'nowrap' }}>
+                            {proj.status}
+                          </span>
+                        )}
+                      </div>
+                      {proj.description && (
+                        <p style={{ fontSize: 12, lineHeight: 1.6, margin: '6px 0 0' }}>
+                          {proj.description}
+                        </p>
+                      )}
+                      {proj.technologies?.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                          {proj.technologies.map((technology) => (
+                            <Chip
+                              key={technology}
+                              label={technology}
+                              color="rgba(56,189,248,0.1)"
+                              textColor="#7dd3fc"
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -11,7 +11,11 @@ import structlog
 
 from app.core.database import Base, async_session_factory, engine
 from app.core.security import hash_password
-from app.models.db.interaction import SavedOpportunity, UserFeedback, UserInteraction  # noqa: F401 — register tables
+from app.models.db.interaction import (  # noqa: F401 — register tables
+    SavedOpportunity,
+    UserFeedback,
+    UserInteraction,
+)
 from app.models.db.opportunity import Opportunity
 from app.models.db.user import User, UserSkill
 
@@ -41,11 +45,19 @@ SAMPLE_OPPORTUNITIES = [
         "duration": "4-5 Years",
         "deadline": datetime.now(UTC) + timedelta(days=45),
         "application_link": "https://cs.stanford.edu/admissions/phd",
-        "documents_required": ["CV", "Statement of Purpose", "3 Recommendation Letters", "Transcripts"],
+        "documents_required": [
+            "CV",
+            "Statement of Purpose",
+            "3 Recommendation Letters",
+            "Transcripts",
+        ],
         "source_url": "https://cs.stanford.edu/jobs/phd-agentic-ai",
         "confidence_score": 0.98,
         "authenticity_score": 0.96,
-        "summary": "Full PhD position working on autonomous agent architectures, multi-agent coordination, and large language model reasoning.",
+        "summary": (
+            "Full PhD position working on autonomous agent architectures, multi-agent "
+            "coordination, and large language model reasoning."
+        ),
     },
     {
         "title": "Postdoctoral Researcher in Graph Neural Networks & Knowledge Discovery",
@@ -71,7 +83,10 @@ SAMPLE_OPPORTUNITIES = [
         "source_url": "https://www.cs.ox.ac.uk/jobs/postdoc-gnn-2026",
         "confidence_score": 0.95,
         "authenticity_score": 0.94,
-        "summary": "Research fellowship investigating geometric deep learning and large-scale knowledge graph representation learning.",
+        "summary": (
+            "Research fellowship investigating geometric deep learning and large-scale "
+            "knowledge graph representation learning."
+        ),
     },
     {
         "title": "AI Research Scientist Intern (Summer 2026)",
@@ -95,7 +110,10 @@ SAMPLE_OPPORTUNITIES = [
         "source_url": "https://deepmind.google/jobs/internship-2026",
         "confidence_score": 0.99,
         "authenticity_score": 0.98,
-        "summary": "3-month summer research internship working alongside senior scientists on frontier multimodal foundation models.",
+        "summary": (
+            "3-month summer research internship working alongside senior scientists on "
+            "frontier multimodal foundation models."
+        ),
     },
     {
         "title": "Graduate Fellowship in Quantum Machine Learning",
@@ -120,7 +138,10 @@ SAMPLE_OPPORTUNITIES = [
         "source_url": "https://ethz.ch/jobs/quantum-ml-fellowship",
         "confidence_score": 0.94,
         "authenticity_score": 0.95,
-        "summary": "Fully funded graduate fellowship focusing on quantum algorithms for machine learning applications.",
+        "summary": (
+            "Fully funded graduate fellowship focusing on quantum algorithms for "
+            "machine learning applications."
+        ),
     },
     {
         "title": "Research Assistantship in Computer Vision & Robotics",
@@ -145,7 +166,10 @@ SAMPLE_OPPORTUNITIES = [
         "source_url": "https://csail.mit.edu/jobs/ra-vision-robotics",
         "confidence_score": 0.97,
         "authenticity_score": 0.97,
-        "summary": "Research assistant position exploring 3D scene representation, computer vision, and robotic manipulation at CSAIL.",
+        "summary": (
+            "Research assistant position exploring 3D scene representation, computer "
+            "vision, and robotic manipulation at CSAIL."
+        ),
     },
 ]
 
@@ -157,15 +181,13 @@ async def seed_database() -> None:
 
     async with async_session_factory() as db:
         from sqlalchemy import delete, select
+
         # Reset opportunities to ensure clean array seeding
         await db.execute(delete(Opportunity))
         await db.commit()
 
         for opp_data in SAMPLE_OPPORTUNITIES:
-            opp = Opportunity(
-                id=uuid4(),
-                **opp_data
-            )
+            opp = Opportunity(id=uuid4(), **opp_data)
             db.add(opp)
         logger.info("opportunities_seeded", count=len(SAMPLE_OPPORTUNITIES))
 
@@ -193,7 +215,11 @@ async def seed_database() -> None:
             # Add skills
             skills = ["Python", "PyTorch", "Deep Learning", "LLMs", "NLP"]
             for s in skills:
-                db.add(UserSkill(id=uuid4(), user_id=demo_user.id, skill_name=s, proficiency="Advanced"))
+                db.add(
+                    UserSkill(
+                        id=uuid4(), user_id=demo_user.id, skill_name=s, proficiency="Advanced"
+                    )
+                )
 
             logger.info("demo_user_seeded", email=demo_user.email)
 

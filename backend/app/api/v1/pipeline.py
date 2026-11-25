@@ -1,7 +1,7 @@
 """Pipeline admin endpoints — trigger discovery runs and manage crawl sources."""
 
-import json
 import asyncio
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, status
@@ -19,7 +19,9 @@ class DiscoveryRequest(BaseModel):
     """Request to trigger a discovery pipeline run."""
 
     topics: list[str] = Field(
-        ..., min_length=1, max_length=10,
+        ...,
+        min_length=1,
+        max_length=10,
         description="Research topics to search for",
         examples=[["natural language processing", "reinforcement learning"]],
     )
@@ -78,12 +80,34 @@ async def trigger_discovery(
     1. Generate search queries from topics
     2. Search across Google, Bing, Tavily
     3. Crawl discovered URLs
-    4. Extract opportunities with LLM
+    4. Extract opportunities with a configured LLM or deterministic rules
     5. Validate and store results
 
     Results are stored in the database asynchronously.
     """
+    from app.agents.discovery.search_agent import SearchAgent
     from app.workers.discovery_worker import run_discovery
+
+    configured_engines = SearchAgent.configured_engines()
+    if not configured_engines:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Opportunity search is not configured yet. Add Google CSE credentials "
+                "(GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX), BING_SEARCH_API_KEY, or "
+                "TAVILY_API_KEY to the project .env file, then restart Docker. "
+                "Opportunity details can still be extracted without an LLM key."
+            ),
+        )
+    if request.search_engines and not set(request.search_engines).intersection(configured_engines):
+        available_engines = ", ".join(configured_engines)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "None of the requested search engines are configured. "
+                f"Available: {available_engines}."
+            ),
+        )
 
     run_discovery.delay(
         topics=request.topics,

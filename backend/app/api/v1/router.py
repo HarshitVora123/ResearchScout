@@ -14,4 +14,3 @@ router.include_router(graph.router)
 router.include_router(search.router)
 router.include_router(notifications.router)
 router.include_router(assist.router)
-

@@ -1,6 +1,8 @@
 """Extractor Agent — LLM-powered structured extraction from web content."""
 
 import json
+import re
+from urllib.parse import urlparse
 
 from app.config import get_settings
 from app.models.schemas.opportunity import ExtractedOpportunity
@@ -78,6 +80,10 @@ class ExtractorAgent:
         # Truncate content for LLM context window
         truncated_content = content[:12000]
 
+        rule_based = self._extract_rule_based(truncated_content, url, title)
+        if rule_based:
+            return rule_based
+
         try:
             # Try primary LLM (Gemini Flash for speed + cost)
             raw_json = await self._extract_with_gemini(truncated_content, url, title)
@@ -94,11 +100,68 @@ class ExtractorAgent:
         except Exception as e:
             print(f"OpenAI extraction failed: {e}")
 
-        return []
+        # Deterministic extraction keeps discovery functional without an LLM key.
+        # It only emits records when the page contains explicit opportunity signals.
+        return self._extract_rule_based(truncated_content, url, title)
 
-    async def _extract_with_gemini(
-        self, content: str, url: str, title: str
-    ) -> str | None:
+    @staticmethod
+    def _extract_rule_based(
+        content: str, url: str, page_title: str = ""
+    ) -> list[ExtractedOpportunity]:
+        """Extract a conservative single opportunity from explicit page text."""
+        from app.nlp.keyword_extraction import analyze_text
+
+        analysis = analyze_text(content)
+        if not analysis.is_opportunity:
+            return []
+
+        opportunity_type = analysis.opportunity_type_hint or "Research Assistant"
+        headings = [
+            re.sub(r"[#*_`]+", "", line).strip(" -–—")
+            for line in content.splitlines()
+            if re.match(r"^\s{0,3}#{1,6}\s+", line)
+        ]
+        title = next(
+            (
+                heading[:200]
+                for heading in headings
+                if len(heading) >= 8
+                and re.search(
+                    (
+                        r"ph\.?d|doctoral|intern|fellow|scholarship|research assistant|"
+                        r"summer school|residen|position|opening|opportunit"
+                    ),
+                    heading,
+                    re.IGNORECASE,
+                )
+            ),
+            (page_title or (headings[0] if headings else "")).strip()[:200],
+        )
+        if len(title) < 8:
+            return []
+
+        host = (urlparse(url).hostname or "").removeprefix("www.")
+        if not host:
+            return []
+        plain_content = re.sub(r"\s+", " ", re.sub(r"[#*_`>-]+", " ", content)).strip()
+        return [
+            ExtractedOpportunity(
+                title=title,
+                opportunity_type=opportunity_type,
+                organization=host,
+                research_areas=analysis.research_areas,
+                keywords=analysis.keywords,
+                required_skills=analysis.skills,
+                programming_languages=analysis.programming_languages,
+                application_link=url,
+                source_url=url,
+                summary=plain_content[:500] or None,
+                raw_text=content[:5000],
+                confidence_score=0.55,
+            )
+        ]
+
+    async def _extract_with_gemini(self, content: str, url: str, title: str) -> str | None:
         """Extract using Google Gemini Flash."""
         if not settings.google_api_key:
             return None
@@ -107,24 +170,25 @@ class ExtractorAgent:
 
         client = genai.Client(api_key=settings.google_api_key)
 
-        prompt = EXTRACTION_USER_TEMPLATE.format(
-            url=url, title=title, content=content
-        )
+        prompt = EXTRACTION_USER_TEMPLATE.format(url=url, title=title, content=content)
 
         import asyncio
 
         response = await asyncio.to_thread(
             client.models.generate_content,
             model="gemini-2.5-flash",
-            contents=[{"role": "user", "parts": [{"text": EXTRACTION_SYSTEM_PROMPT + "\n\n" + prompt}]}],
+            contents=[
+                {
+                    "role": "user",
+                    "parts": [{"text": EXTRACTION_SYSTEM_PROMPT + "\n\n" + prompt}],
+                }
+            ],
             config={"response_mime_type": "application/json", "temperature": 0.1},
         )
 
         return response.text if response.text else None
 
-    async def _extract_with_openai(
-        self, content: str, url: str, title: str
-    ) -> str | None:
+    async def _extract_with_openai(self, content: str, url: str, title: str) -> str | None:
         """Extract using OpenAI GPT-4o."""
         if not settings.openai_api_key:
             return None
@@ -133,9 +197,7 @@ class ExtractorAgent:
 
         client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-        prompt = EXTRACTION_USER_TEMPLATE.format(
-            url=url, title=title, content=content
-        )
+        prompt = EXTRACTION_USER_TEMPLATE.format(url=url, title=title, content=content)
 
         response = await client.chat.completions.create(
             model="gpt-4o",
@@ -149,9 +211,7 @@ class ExtractorAgent:
 
         return response.choices[0].message.content
 
-    def _parse_results(
-        self, raw_json: str, source_url: str
-    ) -> list[ExtractedOpportunity]:
+    def _parse_results(self, raw_json: str, source_url: str) -> list[ExtractedOpportunity]:
         """Parse LLM JSON output into typed Pydantic models."""
         try:
             data = json.loads(raw_json)

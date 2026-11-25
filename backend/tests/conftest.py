@@ -7,7 +7,9 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.compiler import compiles
 
 from app.core.database import Base, get_db
 from app.core.security import hash_password
@@ -15,18 +17,15 @@ from app.main import app
 from app.models.db.user import User
 
 
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.types import JSON
-
 # SQLite ARRAY and JSONB compatibility for tests
 @compiles(ARRAY, "sqlite")
 @compiles(JSONB, "sqlite")
 def _compile_pg_types_sqlite(element, compiler, **kw):
     return "JSON"
 
-# Use an in-memory SQLite for tests
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+
+# Keep test data isolated and avoid modifying a persistent local test.db file.
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest.fixture(scope="session")

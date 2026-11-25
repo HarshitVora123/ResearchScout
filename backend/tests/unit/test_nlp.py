@@ -1,21 +1,22 @@
 """Unit tests for the NLP pipeline — keyword extraction, deadline parsing, skill extraction."""
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from app.nlp.keyword_extraction import analyze_text, NLPResult
-from app.nlp.deadline_parser import parse_deadline, is_deadline_valid, days_until_deadline
+import pytest
+
+from app.nlp.deadline_parser import days_until_deadline, is_deadline_valid, parse_deadline
+from app.nlp.keyword_extraction import analyze_text
 from app.nlp.skill_extraction import (
-    extract_skills,
+    compute_skill_overlap,
     extract_programming_languages,
     extract_research_areas,
-    compute_skill_overlap,
+    extract_skills,
 )
-
 
 # ══════════════════════════════════════════════════════
 # Keyword Extraction Tests
 # ══════════════════════════════════════════════════════
+
 
 class TestAnalyzeText:
     """Test the main NLP analysis function."""
@@ -90,6 +91,7 @@ class TestAnalyzeText:
 # Deadline Parser Tests
 # ══════════════════════════════════════════════════════
 
+
 class TestDeadlineParser:
     """Test deadline date parsing."""
 
@@ -131,18 +133,18 @@ class TestDeadlineParser:
         assert dt.hour == 23  # End of day
 
     def test_is_deadline_valid_future(self):
-        future = datetime(2030, 1, 1, tzinfo=timezone.utc)
+        future = datetime(2030, 1, 1, tzinfo=UTC)
         assert is_deadline_valid(future) is True
 
     def test_is_deadline_valid_past(self):
-        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        past = datetime(2020, 1, 1, tzinfo=UTC)
         assert is_deadline_valid(past) is False
 
     def test_is_deadline_valid_none(self):
         assert is_deadline_valid(None) is True
 
     def test_days_until_deadline(self):
-        future = datetime(2030, 1, 1, tzinfo=timezone.utc)
+        future = datetime(2030, 1, 1, tzinfo=UTC)
         days = days_until_deadline(future)
         assert days is not None
         assert days > 0
@@ -151,6 +153,7 @@ class TestDeadlineParser:
 # ══════════════════════════════════════════════════════
 # Skill Extraction Tests
 # ══════════════════════════════════════════════════════
+
 
 class TestSkillExtraction:
     """Test skill extraction with alias normalization."""
@@ -190,9 +193,7 @@ class TestSkillExtraction:
         assert len(missing) == 0
 
     def test_skill_overlap_partial(self):
-        matched, missing, ratio = compute_skill_overlap(
-            ["Python", "PyTorch", "C++"], ["Python"]
-        )
+        matched, missing, ratio = compute_skill_overlap(["Python", "PyTorch", "C++"], ["Python"])
         assert "python" in matched
         assert "pytorch" in missing
         assert ratio == pytest.approx(1 / 3)

@@ -1,15 +1,15 @@
 """API dependencies — auth, database sessions, and shared utilities."""
 
-from typing import Annotated
 import hmac
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.config import get_settings
+from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.db.user import User
 
@@ -17,7 +17,7 @@ from app.models.db.user import User
 async def get_current_user(
     authorization: Annotated[str | None, Header()] = None,
     access_token: Annotated[str | None, Cookie()] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> User:
     """Extract and validate the current user from the JWT token."""
     if authorization and authorization.startswith("Bearer "):
@@ -74,10 +74,11 @@ async def get_current_user(
         )
 
     if payload.get("ver", 0) != user.token_version:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked"
+        )
 
     return user
-
 
 
 # Type alias for dependency injection
@@ -91,7 +92,9 @@ async def require_admin(
 ) -> User:
     expected = get_settings().admin_api_key
     if not expected or not admin_key or not hmac.compare_digest(expected, admin_key):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required"
+        )
     return user
 
 

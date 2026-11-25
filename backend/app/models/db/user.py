@@ -39,8 +39,8 @@ class User(Base):
     country: Mapped[str | None] = mapped_column(Text)
 
     # ── Preferences ──────────────────────────────
-    preferred_countries: Mapped[list[str] | None] = mapped_column(JSON)
-    preferred_domains: Mapped[list[str] | None] = mapped_column(JSON)
+    preferred_countries: Mapped[list[str] | None] = mapped_column(JSON, default=list)
+    preferred_domains: Mapped[list[str] | None] = mapped_column(JSON, default=list)
     career_goals: Mapped[str | None] = mapped_column(Text)
 
     # ── Profiles ─────────────────────────────────
@@ -52,9 +52,7 @@ class User(Base):
     parsed_resume_text: Mapped[str | None] = mapped_column(Text)
 
     # ── Audit ────────────────────────────────────
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

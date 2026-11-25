@@ -18,11 +18,9 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-
     # Timezone
     timezone="UTC",
     enable_utc=True,
-
     # Task routing — separate queues for different workloads
     # Note: task-level queue= decorators override these routes.
     # The extract queue is set on extract_and_store via its decorator.
@@ -35,19 +33,15 @@ celery_app.conf.update(
         "app.workers.embedding_worker.*": {"queue": "embed"},
         "app.workers.notification_worker.*": {"queue": "default"},
     },
-
     # Reliability
-    task_acks_late=True,       # Ack after task completes (not at start)
+    task_acks_late=True,  # Ack after task completes (not at start)
     worker_prefetch_multiplier=1,  # One task at a time per worker
     task_reject_on_worker_lost=True,
-
     # Timeouts
     task_soft_time_limit=300,  # 5 minutes soft limit
-    task_time_limit=600,       # 10 minutes hard limit
-
+    task_time_limit=600,  # 10 minutes hard limit
     # Result expiration
-    result_expires=86400,      # 24 hours
-
+    result_expires=86400,  # 24 hours
     # Beat schedule — periodic tasks
     beat_schedule={
         "crawl-scheduled-sources": {

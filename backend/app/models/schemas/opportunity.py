@@ -32,6 +32,7 @@ def _robust_parse_list(v: object) -> list:
 
 # ── Response Schemas ─────────────────────────────────
 
+
 class OpportunityBrief(BaseModel):
     """Brief opportunity info for list views."""
 
@@ -109,8 +110,12 @@ class OpportunityDetail(BaseModel):
     model_config = {"from_attributes": True}
 
     @field_validator(
-        "research_areas", "keywords", "required_skills",
-        "programming_languages", "degree_levels", "documents_required",
+        "research_areas",
+        "keywords",
+        "required_skills",
+        "programming_languages",
+        "degree_levels",
+        "documents_required",
         mode="before",
     )
     @classmethod
@@ -119,6 +124,7 @@ class OpportunityDetail(BaseModel):
 
 
 # ── Request / Filter Schemas ─────────────────────────
+
 
 class OpportunityFilters(BaseModel):
     """Query filters for browsing opportunities."""
@@ -155,7 +161,7 @@ class ExtractedOpportunity(BaseModel):
     """Schema for LLM-extracted opportunity data (pre-validation)."""
 
     title: str
-    opportunity_type: str
+    opportunity_type: str = "Other"
     organization: str
     department: str | None = None
     research_lab: str | None = None

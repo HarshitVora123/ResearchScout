@@ -1,6 +1,5 @@
 """Search Agent — executes intelligent searches across multiple APIs."""
 
-
 import httpx
 
 from app.config import get_settings
@@ -25,6 +24,18 @@ class SearchAgent:
     def __init__(self) -> None:
         self.client = httpx.AsyncClient(timeout=15.0)
 
+    @staticmethod
+    def configured_engines() -> list[str]:
+        """Return search providers that have usable credentials configured."""
+        engines = []
+        if settings.google_cse_api_key and settings.google_cse_cx:
+            engines.append("google")
+        if settings.bing_search_api_key:
+            engines.append("bing")
+        if settings.tavily_api_key:
+            engines.append("tavily")
+        return engines
+
     async def search(
         self,
         query: str,
@@ -33,7 +44,7 @@ class SearchAgent:
         site_restrict: str | None = None,
     ) -> list[SearchResult]:
         """Execute a search query across multiple engines."""
-        engines = engines or ["google", "tavily"]
+        engines = engines or ["google", "bing", "tavily"]
         results: list[SearchResult] = []
 
         if site_restrict:
@@ -57,9 +68,7 @@ class SearchAgent:
 
         return unique_results
 
-    async def _search_engine(
-        self, engine: str, query: str, max_results: int
-    ) -> list[SearchResult]:
+    async def _search_engine(self, engine: str, query: str, max_results: int) -> list[SearchResult]:
         """Dispatch to the appropriate search engine."""
         match engine:
             case "google":

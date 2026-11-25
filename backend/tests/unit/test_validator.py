@@ -1,7 +1,8 @@
 """Unit tests for the Validator Agent."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone, timedelta
 
 from app.agents.intelligence.validator_agent import ValidatorAgent
 from app.models.schemas.opportunity import ExtractedOpportunity
@@ -22,7 +23,7 @@ def make_opportunity(**kwargs) -> ExtractedOpportunity:
         "opportunity_type": "PhD",
         "country": "USA",
         "research_areas": ["Machine Learning"],
-        "deadline": datetime.now(timezone.utc) + timedelta(days=30),
+        "deadline": datetime.now(UTC) + timedelta(days=30),
         "confidence_score": 0.8,
         "raw_text": "PhD Position in Machine Learning at MIT. Apply by 2025.",
     }
@@ -60,9 +61,7 @@ class TestValidatorAgent:
 
     @pytest.mark.asyncio
     async def test_past_deadline_flagged(self, validator):
-        opp = make_opportunity(
-            deadline=datetime(2020, 1, 1, tzinfo=timezone.utc)
-        )
+        opp = make_opportunity(deadline=datetime(2020, 1, 1, tzinfo=UTC))
         report = await validator.validate(opp)
         assert report.field_scores["temporal_ok"] < 0.5
         assert any("past" in issue.lower() for issue in report.issues)

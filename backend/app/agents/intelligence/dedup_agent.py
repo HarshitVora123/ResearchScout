@@ -30,6 +30,7 @@ class DedupResult:
 
 # ── MinHash Implementation (no external dependency) ──
 
+
 def _tokenize(text: str) -> set[str]:
     """Tokenize text into word n-grams (shingles) for MinHash."""
     text = re.sub(r"[^\w\s]", "", text.lower().strip())
@@ -55,9 +56,7 @@ def _minhash_signature(shingles: set[str], num_hashes: int = 128) -> list[int]:
     for shingle in shingles:
         for i in range(num_hashes):
             # Use different hash functions via salted hashing
-            h = int(
-                hashlib.md5(f"{i}:{shingle}".encode()).hexdigest()[:8], 16
-            )
+            h = int(hashlib.md5(f"{i}:{shingle}".encode()).hexdigest()[:8], 16)
             signature[i] = min(signature[i], h)
 
     return [int(s) for s in signature]
@@ -67,7 +66,7 @@ def minhash_similarity(sig_a: list[int], sig_b: list[int]) -> float:
     """Compute Jaccard similarity estimate from two MinHash signatures."""
     if len(sig_a) != len(sig_b) or not sig_a:
         return 0.0
-    matches = sum(1 for a, b in zip(sig_a, sig_b) if a == b)
+    matches = sum(1 for a, b in zip(sig_a, sig_b, strict=True) if a == b)
     return matches / len(sig_a)
 
 
@@ -83,18 +82,14 @@ class DedupAgent:
         # In-memory MinHash index: {opportunity_id: (signature, title, org)}
         self._minhash_index: dict[str, tuple[list[int], str, str]] = {}
 
-    def add_to_index(
-        self, opportunity_id: str, title: str, organization: str
-    ) -> None:
+    def add_to_index(self, opportunity_id: str, title: str, organization: str) -> None:
         """Add an opportunity to the MinHash index."""
         text = f"{title} {organization}"
         shingles = _tokenize(text)
         signature = _minhash_signature(shingles)
         self._minhash_index[opportunity_id] = (signature, title, organization)
 
-    def check_minhash(
-        self, title: str, organization: str, threshold: float = 0.6
-    ) -> DedupResult:
+    def check_minhash(self, title: str, organization: str, threshold: float = 0.6) -> DedupResult:
         """
         Check for fuzzy duplicates using MinHash.
 
@@ -155,7 +150,10 @@ class DedupAgent:
                 duplicate_id=best["id"],
                 match_type="semantic",
                 similarity_score=best["score"],
-                details=f"Semantic match ({best['score']:.2%}): '{best['title']}' @ {best['organization']}",
+                details=(
+                    f"Semantic match ({best['score']:.2%}): "
+                    f"'{best['title']}' @ {best['organization']}"
+                ),
             )
 
         return DedupResult(is_duplicate=False)

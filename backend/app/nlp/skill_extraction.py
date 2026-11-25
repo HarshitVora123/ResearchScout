@@ -99,13 +99,20 @@ def extract_programming_languages(text: str) -> list[str]:
         found.add("c#")
 
     for alias, canonical in SKILL_ALIASES.items():
-        if canonical in PROGRAMMING_LANGUAGES and canonical not in found:
-            if re.search(rf"(?:^|\W){re.escape(alias)}(?:$|\W)", text_lower):
-                found.add(canonical)
+        if (
+            canonical in PROGRAMMING_LANGUAGES
+            and canonical not in found
+            and re.search(rf"(?:^|\W){re.escape(alias)}(?:$|\W)", text_lower)
+        ):
+            found.add(canonical)
 
     for lang in PROGRAMMING_LANGUAGES:
         if lang not in found:
-            pattern = rf"\b{re.escape(lang)}\b" if lang.isalnum() else rf"(?:^|\W){re.escape(lang)}(?:$|\W)"
+            pattern = (
+                rf"\b{re.escape(lang)}\b"
+                if lang.isalnum()
+                else rf"(?:^|\W){re.escape(lang)}(?:$|\W)"
+            )
             if re.search(pattern, text_lower):
                 found.add(lang)
 

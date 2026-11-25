@@ -33,9 +33,7 @@ class UserInteraction(Base):
     interaction_type: Mapped[str] = mapped_column(
         String(20), nullable=False
     )  # view, save, apply, dismiss, share
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self) -> str:
         return f"<UserInteraction {self.interaction_type!r}>"
@@ -58,9 +56,7 @@ class UserFeedback(Base):
     )  # thumbs_up, thumbs_down, correction, report
     feedback_text: Mapped[str | None] = mapped_column(Text)
     corrections: Mapped[dict | None] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self) -> str:
         return f"<UserFeedback {self.feedback_type!r}>"
@@ -83,9 +79,7 @@ class SavedOpportunity(Base):
     status: Mapped[str] = mapped_column(
         String(20), default="saved"
     )  # saved, applying, applied, rejected, accepted
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self) -> str:
         return f"<SavedOpportunity status={self.status!r}>"

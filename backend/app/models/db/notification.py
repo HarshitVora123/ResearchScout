@@ -29,9 +29,7 @@ class NotificationPreference(Base):
         String(20), nullable=False
     )  # email, telegram, discord, slack, push
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    frequency: Mapped[str] = mapped_column(
-        String(20), default="daily"
-    )  # instant, daily, weekly
+    frequency: Mapped[str] = mapped_column(String(20), default="daily")  # instant, daily, weekly
     config: Mapped[dict | None] = mapped_column(
         JSON
     )  # Channel-specific config (chat_id, webhook_url, etc.)

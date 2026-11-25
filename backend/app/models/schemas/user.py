@@ -1,12 +1,13 @@
 """Pydantic schemas for user authentication and profile management."""
 
 from datetime import date, datetime
-from uuid import UUID
 from urllib.parse import urlparse
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ── Auth Schemas ─────────────────────────────────────
+
 
 class UserRegisterRequest(BaseModel):
     """Registration request."""
@@ -54,6 +55,7 @@ class RefreshTokenRequest(BaseModel):
 
 # ── Profile Schemas ──────────────────────────────────
 
+
 class UserProfileResponse(BaseModel):
     """User profile response."""
 
@@ -78,6 +80,11 @@ class UserProfileResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("preferred_countries", "preferred_domains", mode="before")
+    @classmethod
+    def empty_missing_preferences(cls, value: list[str] | None) -> list[str]:
+        return value or []
 
 
 class UserProfileUpdateRequest(BaseModel):
@@ -107,6 +114,7 @@ class UserProfileUpdateRequest(BaseModel):
 
 # ── Skill Schemas ────────────────────────────────────
 
+
 class SkillResponse(BaseModel):
     """User skill response."""
 
@@ -127,6 +135,7 @@ class SkillCreateRequest(BaseModel):
 
 
 # ── Publication Schemas ──────────────────────────────
+
 
 class PublicationResponse(BaseModel):
     """User publication response."""
@@ -152,6 +161,7 @@ class PublicationCreateRequest(BaseModel):
 
 
 # ── Project Schemas ──────────────────────────────────
+
 
 class ProjectResponse(BaseModel):
     """User project response."""
@@ -179,6 +189,7 @@ class ProjectCreateRequest(BaseModel):
 
 
 # ── Research Interest Schemas ────────────────────────
+
 
 class ResearchInterestResponse(BaseModel):
     """User research interest response."""

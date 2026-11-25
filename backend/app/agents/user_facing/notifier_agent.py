@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """
 Notifier Agent — dispatches notifications across Email (SendGrid), Telegram, and Discord.
 
@@ -7,12 +8,12 @@ Handles:
 - Deadline warning alerts (e.g. deadline in 7 days / 3 days)
 """
 
-from typing import Any
 from html import escape
+from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 import structlog
-from urllib.parse import urlparse
 
 from app.config import get_settings
 
@@ -97,7 +98,11 @@ class NotifierAgent:
             logger.warning("discord_not_sent_missing_webhook")
             return False
         parsed = urlparse(url)
-        if parsed.scheme != "https" or parsed.hostname not in {"discord.com", "discordapp.com"} or not parsed.path.startswith("/api/webhooks/"):
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname not in {"discord.com", "discordapp.com"}
+            or not parsed.path.startswith("/api/webhooks/")
+        ):
             logger.warning("discord_webhook_rejected")
             return False
 
@@ -134,9 +139,9 @@ class NotifierAgent:
 
             items_html += f"""
             <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                <h3 style="margin: 0 0 8px 0; color: #1e293b;">{escape(str(opp.get('title', 'Opportunity')))}</h3>
-                <p style="margin: 0 0 8px 0; font-weight: 600; color: #475569;">🏛️ {escape(str(opp.get('organization', '')))} • 📍 {escape(str(opp.get('country', 'Worldwide')))}</p>
-                {f"<p>Deadline: {escape(str(opp.get('deadline')))}</p>" if opp.get('deadline') else ""}
+                <h3 style="margin: 0 0 8px 0; color: #1e293b;">{escape(str(opp.get("title", "Opportunity")))}</h3>
+                <p style="margin: 0 0 8px 0; font-weight: 600; color: #475569;">🏛️ {escape(str(opp.get("organization", "")))} • 📍 {escape(str(opp.get("country", "Worldwide")))}</p>
+                {f"<p>Deadline: {escape(str(opp.get('deadline')))}</p>" if opp.get("deadline") else ""}
                 <div style="background: #f8fafc; padding: 10px; border-radius: 6px; font-size: 13px; color: #334155;">
                     <strong>Why this matches:</strong><br>• {reasons}
                 </div>

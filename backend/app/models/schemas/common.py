@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 # ── Enums ────────────────────────────────────────────
 
+
 class OpportunityType(StrEnum):
     PHD = "PhD"
     MASTERS_THESIS = "Masters Thesis"
@@ -72,8 +73,10 @@ class SavedStatus(StrEnum):
 
 # ── Common Response Models ───────────────────────────
 
+
 class HealthResponse(BaseModel):
     """Health check response."""
+
     status: str = "ok"
     version: str = "0.1.0"
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -82,6 +85,7 @@ class HealthResponse(BaseModel):
 
 class PaginatedResponse(BaseModel):
     """Generic paginated response wrapper."""
+
     items: list = []
     total: int = 0
     page: int = 1
@@ -91,6 +95,7 @@ class PaginatedResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Standard error response."""
+
     detail: str
     status_code: int
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -98,4 +103,5 @@ class ErrorResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     """Simple message response."""
+
     message: str

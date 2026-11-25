@@ -5,47 +5,149 @@ from dataclasses import dataclass, field
 
 # ── Predefined Skill Taxonomy ────────────────────────
 PROGRAMMING_LANGUAGES = {
-    "python", "java", "c++", "c", "r", "matlab", "julia", "scala",
-    "javascript", "typescript", "rust", "go", "kotlin", "swift",
-    "sql", "bash", "shell", "perl", "ruby", "php", "haskell",
-    "lisp", "prolog", "fortran", "assembly", "verilog", "vhdl",
+    "python",
+    "java",
+    "c++",
+    "c",
+    "r",
+    "matlab",
+    "julia",
+    "scala",
+    "javascript",
+    "typescript",
+    "rust",
+    "go",
+    "kotlin",
+    "swift",
+    "sql",
+    "bash",
+    "shell",
+    "perl",
+    "ruby",
+    "php",
+    "haskell",
+    "lisp",
+    "prolog",
+    "fortran",
+    "assembly",
+    "verilog",
+    "vhdl",
 }
 
 ML_FRAMEWORKS = {
-    "pytorch", "tensorflow", "keras", "jax", "flax", "scikit-learn",
-    "sklearn", "xgboost", "lightgbm", "catboost", "huggingface",
-    "transformers", "spacy", "nltk", "gensim", "opencv", "detectron2",
-    "mmdetection", "paddlepaddle", "mxnet", "caffe", "onnx",
-    "langchain", "langgraph", "llamaindex", "openai api",
+    "pytorch",
+    "tensorflow",
+    "keras",
+    "jax",
+    "flax",
+    "scikit-learn",
+    "sklearn",
+    "xgboost",
+    "lightgbm",
+    "catboost",
+    "huggingface",
+    "transformers",
+    "spacy",
+    "nltk",
+    "gensim",
+    "opencv",
+    "detectron2",
+    "mmdetection",
+    "paddlepaddle",
+    "mxnet",
+    "caffe",
+    "onnx",
+    "langchain",
+    "langgraph",
+    "llamaindex",
+    "openai api",
 }
 
 RESEARCH_TOOLS = {
-    "docker", "kubernetes", "git", "linux", "aws", "gcp", "azure",
-    "spark", "hadoop", "kafka", "airflow", "mlflow", "wandb",
-    "ray", "dask", "postgresql", "mongodb", "neo4j", "redis",
-    "elasticsearch", "grafana", "prometheus", "terraform", "ansible",
-    "latex", "overleaf", "jupyter", "colab",
+    "docker",
+    "kubernetes",
+    "git",
+    "linux",
+    "aws",
+    "gcp",
+    "azure",
+    "spark",
+    "hadoop",
+    "kafka",
+    "airflow",
+    "mlflow",
+    "wandb",
+    "ray",
+    "dask",
+    "postgresql",
+    "mongodb",
+    "neo4j",
+    "redis",
+    "elasticsearch",
+    "grafana",
+    "prometheus",
+    "terraform",
+    "ansible",
+    "latex",
+    "overleaf",
+    "jupyter",
+    "colab",
 }
 
 RESEARCH_AREAS = {
-    "natural language processing", "nlp", "computer vision", "cv",
-    "machine learning", "deep learning", "reinforcement learning",
-    "robotics", "ai safety", "ai alignment", "generative ai",
-    "large language models", "llm", "knowledge graphs",
-    "information retrieval", "recommendation systems",
-    "speech processing", "audio processing", "signal processing",
-    "bioinformatics", "computational biology", "drug discovery",
-    "climate science", "quantum computing", "quantum machine learning",
-    "autonomous driving", "medical imaging", "healthcare ai",
-    "graph neural networks", "federated learning", "privacy",
-    "fairness", "explainable ai", "xai", "interpretability",
-    "multi-agent systems", "multimodal learning",
-    "transfer learning", "meta-learning", "few-shot learning",
-    "continual learning", "self-supervised learning",
-    "contrastive learning", "diffusion models", "gan",
-    "variational autoencoders", "bayesian methods",
-    "optimization", "convex optimization", "causal inference",
-    "time series", "anomaly detection", "data mining",
+    "natural language processing",
+    "nlp",
+    "computer vision",
+    "cv",
+    "machine learning",
+    "deep learning",
+    "reinforcement learning",
+    "robotics",
+    "ai safety",
+    "ai alignment",
+    "generative ai",
+    "large language models",
+    "llm",
+    "knowledge graphs",
+    "information retrieval",
+    "recommendation systems",
+    "speech processing",
+    "audio processing",
+    "signal processing",
+    "bioinformatics",
+    "computational biology",
+    "drug discovery",
+    "climate science",
+    "quantum computing",
+    "quantum machine learning",
+    "autonomous driving",
+    "medical imaging",
+    "healthcare ai",
+    "graph neural networks",
+    "federated learning",
+    "privacy",
+    "fairness",
+    "explainable ai",
+    "xai",
+    "interpretability",
+    "multi-agent systems",
+    "multimodal learning",
+    "transfer learning",
+    "meta-learning",
+    "few-shot learning",
+    "continual learning",
+    "self-supervised learning",
+    "contrastive learning",
+    "diffusion models",
+    "gan",
+    "variational autoencoders",
+    "bayesian methods",
+    "optimization",
+    "convex optimization",
+    "causal inference",
+    "time series",
+    "anomaly detection",
+    "data mining",
 }
 
 ALL_SKILLS = PROGRAMMING_LANGUAGES | ML_FRAMEWORKS | RESEARCH_TOOLS
@@ -108,9 +210,7 @@ def analyze_text(text: str) -> NLPResult:
     result = NLPResult()
 
     # 1. Check if this is likely an opportunity page
-    match_count = sum(
-        1 for pattern in OPPORTUNITY_PATTERNS if re.search(pattern, text)
-    )
+    match_count = sum(1 for pattern in OPPORTUNITY_PATTERNS if re.search(pattern, text))
     result.is_opportunity = match_count >= 2
 
     # 2. Detect opportunity type
@@ -121,19 +221,18 @@ def analyze_text(text: str) -> NLPResult:
 
     # 3. Extract programming languages
     from app.nlp.skill_extraction import extract_programming_languages
+
     result.programming_languages = extract_programming_languages(text)
 
     # 4. Extract skills (frameworks + tools)
     result.skills = [
-        skill for skill in (ML_FRAMEWORKS | RESEARCH_TOOLS)
+        skill
+        for skill in (ML_FRAMEWORKS | RESEARCH_TOOLS)
         if re.search(rf"\b{re.escape(skill)}\b", text_lower)
     ]
 
     # 5. Extract research areas
-    result.research_areas = [
-        area for area in RESEARCH_AREAS
-        if area in text_lower
-    ]
+    result.research_areas = [area for area in RESEARCH_AREAS if area in text_lower]
 
     # 6. Extract keywords (top nouns/phrases via simple frequency)
     result.keywords = _extract_keywords_simple(text)
@@ -151,14 +250,56 @@ def _extract_keywords_simple(text: str, top_k: int = 10) -> list[str]:
 
     # Filter stopwords (minimal set)
     stopwords = {
-        "that", "this", "with", "from", "have", "will", "been",
-        "they", "their", "there", "were", "what", "when", "where",
-        "which", "would", "could", "should", "about", "more",
-        "also", "some", "than", "other", "into", "only", "very",
-        "just", "most", "such", "each", "both", "does", "being",
-        "your", "please", "university", "research", "contact",
-        "email", "application", "information", "http", "https",
-        "page", "click", "here", "home", "menu", "navigation",
+        "that",
+        "this",
+        "with",
+        "from",
+        "have",
+        "will",
+        "been",
+        "they",
+        "their",
+        "there",
+        "were",
+        "what",
+        "when",
+        "where",
+        "which",
+        "would",
+        "could",
+        "should",
+        "about",
+        "more",
+        "also",
+        "some",
+        "than",
+        "other",
+        "into",
+        "only",
+        "very",
+        "just",
+        "most",
+        "such",
+        "each",
+        "both",
+        "does",
+        "being",
+        "your",
+        "please",
+        "university",
+        "research",
+        "contact",
+        "email",
+        "application",
+        "information",
+        "http",
+        "https",
+        "page",
+        "click",
+        "here",
+        "home",
+        "menu",
+        "navigation",
     }
     filtered = [w for w in words if w not in stopwords]
 

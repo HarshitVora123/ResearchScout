@@ -1,7 +1,8 @@
 """Unit tests for the KG Builder Agent — entity extraction and relationship creation."""
 
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from app.agents.knowledge.kg_builder_agent import KGBuilderAgent, _infer_org_type
 from app.models.schemas.opportunity import ExtractedOpportunity
@@ -87,7 +88,7 @@ class TestKGBuilderAgent:
             confidence_score=0.5,
         )
 
-        result = await agent.ingest_opportunity("opp-456", opp)
+        await agent.ingest_opportunity("opp-456", opp)
 
         # Should still create opportunity + organization
         mock_neo4j.upsert_opportunity.assert_called_once()

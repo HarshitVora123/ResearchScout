@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """
 Application Assistant Agent — AI tools for research opportunity applicants:
 - AI Cover Letter Generator
@@ -33,8 +34,7 @@ class ApplicationAssistantAgent:
         university = user_profile.get("university", "my university")
         degree = user_profile.get("degree_level", "my degree")
         skills = [
-            s["skill_name"] if isinstance(s, dict) else s
-            for s in user_profile.get("skills", [])
+            s["skill_name"] if isinstance(s, dict) else s for s in user_profile.get("skills", [])
         ]
 
         title = opportunity.get("title", "Research Position")
@@ -85,13 +85,13 @@ Sincerely,
 
         subject = f"Inquiry regarding {title} - {user_name}"
 
-        body = f"""Dear Professor {prof.split()[-1] if prof and ' ' in prof else prof},
+        body = f"""Dear Professor {prof.split()[-1] if prof and " " in prof else prof},
 
 I hope this email finds you well.
 
-My name is {user_name}, and I am currently a {degree} candidate interested in research opportunities in {', '.join(areas[:2])}.
+My name is {user_name}, and I am currently a {degree} candidate interested in research opportunities in {", ".join(areas[:2])}.
 
-I recently came across the open {title} at {org} and was deeply inspired by your lab's focus. My previous work has focused on {', '.join(areas[:2])}, and I believe my background would allow me to contribute effectively to your ongoing projects.
+I recently came across the open {title} at {org} and was deeply inspired by your lab's focus. My previous work has focused on {", ".join(areas[:2])}, and I believe my background would allow me to contribute effectively to your ongoing projects.
 
 Would you have 10-15 minutes for a brief call to discuss potential research openings in your group for the upcoming term? I have attached my CV for your review.
 
@@ -116,18 +116,22 @@ Best regards,
 
         readings = []
         for area in areas[:3]:
-            readings.append({
-                "topic": area,
-                "recommended_reading": f"Foundational Methods & Survey Papers in {area}",
-                "description": f"Core literature and recent benchmark papers in {area} relevant to research at {org}.",
-            })
+            readings.append(
+                {
+                    "topic": area,
+                    "recommended_reading": f"Foundational Methods & Survey Papers in {area}",
+                    "description": f"Core literature and recent benchmark papers in {area} relevant to research at {org}.",
+                }
+            )
 
         if not readings:
-            readings.append({
-                "topic": "General Methodology",
-                "recommended_reading": "Key Publications in the Field",
-                "description": "Essential literature review prior to interview.",
-            })
+            readings.append(
+                {
+                    "topic": "General Methodology",
+                    "recommended_reading": "Key Publications in the Field",
+                    "description": "Essential literature review prior to interview.",
+                }
+            )
 
         return readings
 
@@ -146,15 +150,21 @@ Best regards,
 
         questions = []
         for skill in skills[:3]:
-            questions.append(f"Can you walk us through a recent project where you used {skill} to solve a complex problem?")
+            questions.append(
+                f"Can you walk us through a recent project where you used {skill} to solve a complex problem?"
+            )
 
         for area in areas[:2]:
-            questions.append(f"What are the major open challenges in {area} that you are most excited to address?")
+            questions.append(
+                f"What are the major open challenges in {area} that you are most excited to address?"
+            )
 
-        questions.extend([
-            "How do you approach debugging when a research hypothesis or model fails to perform?",
-            "Can you discuss a paper in your field that influenced your technical thinking recently?",
-        ])
+        questions.extend(
+            [
+                "How do you approach debugging when a research hypothesis or model fails to perform?",
+                "Can you discuss a paper in your field that influenced your technical thinking recently?",
+            ]
+        )
 
         questions_for_pi = [
             "What are the primary active milestones for the lab over the next 12 months?",

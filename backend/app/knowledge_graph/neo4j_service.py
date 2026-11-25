@@ -20,16 +20,25 @@ async def get_neo4j_driver() -> AsyncDriver:
 # ── Schema Constraints (run once on startup) ────────
 SCHEMA_QUERIES = [
     # Uniqueness constraints
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (o:Opportunity) REQUIRE o.id IS UNIQUE",
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (org:Organization) REQUIRE org.name IS UNIQUE",
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (r:Researcher) REQUIRE r.name IS UNIQUE",
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (t:Topic) REQUIRE t.name IS UNIQUE",
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (s:Skill) REQUIRE s.name IS UNIQUE",
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (c:Country) REQUIRE c.name IS UNIQUE",
+    (
+        "CREATE CONSTRAINT opportunity_id_unique IF NOT EXISTS "
+        "FOR (o:Opportunity) REQUIRE o.id IS UNIQUE"
+    ),
+    (
+        "CREATE CONSTRAINT organization_name_unique IF NOT EXISTS "
+        "FOR (org:Organization) REQUIRE org.name IS UNIQUE"
+    ),
+    (
+        "CREATE CONSTRAINT researcher_name_unique IF NOT EXISTS "
+        "FOR (r:Researcher) REQUIRE r.name IS UNIQUE"
+    ),
+    "CREATE CONSTRAINT topic_name_unique IF NOT EXISTS FOR (t:Topic) REQUIRE t.name IS UNIQUE",
+    "CREATE CONSTRAINT skill_name_unique IF NOT EXISTS FOR (s:Skill) REQUIRE s.name IS UNIQUE",
+    "CREATE CONSTRAINT country_name_unique IF NOT EXISTS FOR (c:Country) REQUIRE c.name IS UNIQUE",
     # Indexes for fast lookup
-    "CREATE INDEX IF NOT EXISTS FOR (o:Opportunity) ON (o.type)",
-    "CREATE INDEX IF NOT EXISTS FOR (o:Opportunity) ON (o.is_active)",
-    "CREATE INDEX IF NOT EXISTS FOR (org:Organization) ON (org.type)",
+    "CREATE INDEX opportunity_type_index IF NOT EXISTS FOR (o:Opportunity) ON (o.type)",
+    "CREATE INDEX opportunity_active_index IF NOT EXISTS FOR (o:Opportunity) ON (o.is_active)",
+    "CREATE INDEX organization_type_index IF NOT EXISTS FOR (org:Organization) ON (org.type)",
 ]
 
 
@@ -78,11 +87,11 @@ class Neo4jService:
         async with driver.session() as session:
             for query in SCHEMA_QUERIES:
                 try:
-                    await session.run(query)
+                    result = await session.run(query)
+                    await result.consume()
                 except Exception as e:
                     logger.warning("schema_query_failed", query=query[:60], error=str(e))
         logger.info("neo4j_schema_initialized")
-
 
     # ── Entity Creation ──────────────────────────────
 
@@ -106,13 +115,14 @@ class Neo4jService:
                     o.confidence = $confidence,
                     o.updated_at = datetime()
                 """,
-                id=opp_id, title=title, type=opp_type,
-                is_active=is_active, confidence=confidence,
+                id=opp_id,
+                title=title,
+                type=opp_type,
+                is_active=is_active,
+                confidence=confidence,
             )
 
-    async def upsert_organization(
-        self, name: str, org_type: str = "university"
-    ) -> None:
+    async def upsert_organization(self, name: str, org_type: str = "university") -> None:
         """Create or update an Organization node."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -121,12 +131,11 @@ class Neo4jService:
                 MERGE (org:Organization {name: $name})
                 SET org.type = $type, org.updated_at = datetime()
                 """,
-                name=name, type=org_type,
+                name=name,
+                type=org_type,
             )
 
-    async def upsert_researcher(
-        self, name: str, email: str | None = None
-    ) -> None:
+    async def upsert_researcher(self, name: str, email: str | None = None) -> None:
         """Create or update a Researcher node."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -164,9 +173,7 @@ class Neo4jService:
 
     # ── Relationship Creation ────────────────────────
 
-    async def link_opportunity_organization(
-        self, opp_id: str, org_name: str
-    ) -> None:
+    async def link_opportunity_organization(self, opp_id: str, org_name: str) -> None:
         """OFFERED_BY: Opportunity → Organization."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -176,12 +183,11 @@ class Neo4jService:
                 MERGE (org:Organization {name: $org_name})
                 MERGE (o)-[:OFFERED_BY]->(org)
                 """,
-                opp_id=opp_id, org_name=org_name,
+                opp_id=opp_id,
+                org_name=org_name,
             )
 
-    async def link_opportunity_researcher(
-        self, opp_id: str, researcher_name: str
-    ) -> None:
+    async def link_opportunity_researcher(self, opp_id: str, researcher_name: str) -> None:
         """SUPERVISED_BY: Opportunity → Researcher."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -191,12 +197,11 @@ class Neo4jService:
                 MERGE (r:Researcher {name: $researcher_name})
                 MERGE (o)-[:SUPERVISED_BY]->(r)
                 """,
-                opp_id=opp_id, researcher_name=researcher_name,
+                opp_id=opp_id,
+                researcher_name=researcher_name,
             )
 
-    async def link_opportunity_topic(
-        self, opp_id: str, topic_name: str
-    ) -> None:
+    async def link_opportunity_topic(self, opp_id: str, topic_name: str) -> None:
         """COVERS_TOPIC: Opportunity → Topic."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -206,12 +211,11 @@ class Neo4jService:
                 MERGE (t:Topic {name: $topic_name})
                 MERGE (o)-[:COVERS_TOPIC]->(t)
                 """,
-                opp_id=opp_id, topic_name=topic_name,
+                opp_id=opp_id,
+                topic_name=topic_name,
             )
 
-    async def link_opportunity_skill(
-        self, opp_id: str, skill_name: str
-    ) -> None:
+    async def link_opportunity_skill(self, opp_id: str, skill_name: str) -> None:
         """REQUIRES_SKILL: Opportunity → Skill."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -221,12 +225,11 @@ class Neo4jService:
                 MERGE (s:Skill {name: $skill_name})
                 MERGE (o)-[:REQUIRES_SKILL]->(s)
                 """,
-                opp_id=opp_id, skill_name=skill_name,
+                opp_id=opp_id,
+                skill_name=skill_name,
             )
 
-    async def link_organization_country(
-        self, org_name: str, country_name: str
-    ) -> None:
+    async def link_organization_country(self, org_name: str, country_name: str) -> None:
         """LOCATED_IN: Organization → Country."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -236,12 +239,11 @@ class Neo4jService:
                 MERGE (c:Country {name: $country_name})
                 MERGE (org)-[:LOCATED_IN]->(c)
                 """,
-                org_name=org_name, country_name=country_name,
+                org_name=org_name,
+                country_name=country_name,
             )
 
-    async def link_researcher_organization(
-        self, researcher_name: str, org_name: str
-    ) -> None:
+    async def link_researcher_organization(self, researcher_name: str, org_name: str) -> None:
         """AFFILIATED_WITH: Researcher → Organization."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -251,7 +253,8 @@ class Neo4jService:
                 MERGE (org:Organization {name: $org_name})
                 MERGE (r)-[:AFFILIATED_WITH]->(org)
                 """,
-                researcher_name=researcher_name, org_name=org_name,
+                researcher_name=researcher_name,
+                org_name=org_name,
             )
 
     async def link_similar_opportunities(
@@ -266,35 +269,35 @@ class Neo4jService:
                 MERGE (a)-[r:SIMILAR_TO]-(b)
                 SET r.similarity = $similarity
                 """,
-                id_a=opp_id_a, id_b=opp_id_b, similarity=similarity,
+                id_a=opp_id_a,
+                id_b=opp_id_b,
+                similarity=similarity,
             )
 
     # ── Graph Queries ────────────────────────────────
 
-    async def find_related_opportunities(
-        self, opp_id: str, limit: int = 10
-    ) -> list[dict]:
+    async def find_related_opportunities(self, opp_id: str, limit: int = 10) -> list[dict]:
         """Find opportunities related via shared topics/skills/organizations."""
         driver = await self._get_driver()
         async with driver.session() as session:
+            query = (
+                "MATCH (o:Opportunity {id: $opp_id}) "
+                "-[:COVERS_TOPIC|REQUIRES_SKILL|OFFERED_BY]->(shared) "
+                "<-[:COVERS_TOPIC|REQUIRES_SKILL|OFFERED_BY]-(related:Opportunity) "
+                "WHERE related.id <> $opp_id AND related.is_active = true "
+                "WITH related, count(shared) AS shared_count "
+                "ORDER BY shared_count DESC LIMIT $limit "
+                "RETURN related.id AS id, related.title AS title, "
+                "related.type AS type, shared_count"
+            )
             result = await session.run(
-                """
-                MATCH (o:Opportunity {id: $opp_id})-[:COVERS_TOPIC|REQUIRES_SKILL|OFFERED_BY]->(shared)
-                      <-[:COVERS_TOPIC|REQUIRES_SKILL|OFFERED_BY]-(related:Opportunity)
-                WHERE related.id <> $opp_id AND related.is_active = true
-                WITH related, count(shared) AS shared_count
-                ORDER BY shared_count DESC
-                LIMIT $limit
-                RETURN related.id AS id, related.title AS title,
-                       related.type AS type, shared_count
-                """,
-                opp_id=opp_id, limit=limit,
+                query,
+                opp_id=opp_id,
+                limit=limit,
             )
             return [dict(record) async for record in result]
 
-    async def get_topic_cluster(
-        self, topic_name: str, limit: int = 20
-    ) -> list[dict]:
+    async def get_topic_cluster(self, topic_name: str, limit: int = 20) -> list[dict]:
         """Get all active opportunities covering a topic."""
         driver = await self._get_driver()
         async with driver.session() as session:
@@ -306,7 +309,8 @@ class Neo4jService:
                 ORDER BY o.confidence DESC
                 LIMIT $limit
                 """,
-                topic=topic_name, limit=limit,
+                topic=topic_name,
+                limit=limit,
             )
             return [dict(record) async for record in result]
 

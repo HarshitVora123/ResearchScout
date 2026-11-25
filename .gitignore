@@ -51,6 +51,7 @@ out/
 # Logs
 *.log
 logs/
+backend/celerybeat-schedule*
 
 # Data artifacts
 data/models/*.bin
@@ -58,3 +59,6 @@ data/models/*.pt
 
 # SQLite databases
 *.db
+
+# Local database backups
+/backups/

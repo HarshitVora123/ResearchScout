@@ -1,11 +1,11 @@
-"""Unit tests for Phase 3 — Resume Parser, Recommendation Engine, Explanation Agent, and Feedback Loop."""
+"""Tests for resume parsing, recommendations, explanations, and feedback."""
 
 import pytest
 
-from app.nlp.resume_parser import ResumeParser
-from app.ranking.recommendation_engine import RecommendationEngine
 from app.agents.user_facing.explanation_agent import ExplanationAgent
+from app.nlp.resume_parser import ResumeParser
 from app.ranking.feedback_loop import FeedbackAgent
+from app.ranking.recommendation_engine import RecommendationEngine
 
 
 class TestResumeParser:
@@ -37,6 +37,37 @@ class TestResumeParser:
         assert "stanford" in (parsed.university or "").lower()
         assert "python" in [s.lower() for s in parsed.programming_languages + parsed.skills]
         assert len(parsed.publications) > 0
+
+    def test_groups_project_titles_and_descriptions_and_normalizes_indian_cgpa(self):
+        resume = """Education
+Pune Institute of Computer Technology CGPA: 9.60
+BE – Artificial Intelligence & Data Science Aug 2023 – Jun 2027
+Projects
+Home-Accessible Brain Tumour Screening and Triage Ongoing
+Research Advisor: Faculty Name
+– Investigated brain tumour detection approaches and available datasets, including
+methods to identify feasibility constraints and gaps in accessible screening.
+– Formulated a home-accessible screening and triage research direction.
+3D Endoscopic Reconstruction Pipeline
+– Developed a 3D reconstruction pipeline using Python and OpenCV.
+– Implemented point cloud generation on endoscopy datasets.
+Technical Skills
+Python, OpenCV
+"""
+
+        parsed = ResumeParser().parse_text(resume)
+
+        assert parsed.university == "Pune Institute of Computer Technology"
+        assert parsed.gpa == pytest.approx(3.84)
+        assert parsed.degree_level == "Bachelor"
+        assert parsed.major == "Artificial Intelligence & Data Science"
+        assert [project["title"] for project in parsed.projects] == [
+            "Home-Accessible Brain Tumour Screening and Triage",
+            "3D Endoscopic Reconstruction Pipeline",
+        ]
+        assert "methods to identify feasibility constraints" in parsed.projects[0]["description"]
+        assert "Formulated a home-accessible" in parsed.projects[0]["description"]
+        assert {"python", "opencv"}.issubset(set(parsed.projects[1]["technologies"]))
 
 
 class TestRecommendationEngine:
@@ -121,7 +152,10 @@ class TestExplanationAgent:
             total_score=0.92,
             vector_score=0.9,
             graph_score=0.8,
-            rule_reasons=["Located in target country (Switzerland)", "Matching technical skills (100% overlap)"],
+            rule_reasons=[
+                "Located in target country (Switzerland)",
+                "Matching technical skills (100% overlap)",
+            ],
             user_profile={"full_name": "Test User"},
             opportunity={"confidence_score": 0.95, "deadline": "2025-05-01"},
         )

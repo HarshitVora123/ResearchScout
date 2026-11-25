@@ -75,7 +75,7 @@ class KGBuilderAgent:
                     relationships_created += 1
 
             # 3. Topics (research areas)
-            for area in (opp.research_areas or []):
+            for area in opp.research_areas or []:
                 normalized = area.strip().title()
                 if len(normalized) > 2:
                     await self.neo4j.upsert_topic(normalized)
@@ -93,7 +93,7 @@ class KGBuilderAgent:
                     relationships_created += 1
 
             # 5. Programming languages (as skills)
-            for lang in (opp.programming_languages or []):
+            for lang in opp.programming_languages or []:
                 normalized = lang.strip().lower()
                 if normalized:
                     await self.neo4j.upsert_skill(normalized)
@@ -113,9 +113,7 @@ class KGBuilderAgent:
 
                 # Link researcher to organization
                 if opp.organization:
-                    await self.neo4j.link_researcher_organization(
-                        opp.professor, opp.organization
-                    )
+                    await self.neo4j.link_researcher_organization(opp.professor, opp.organization)
                     relationships_created += 1
 
             logger.info(
@@ -149,17 +147,42 @@ def _infer_org_type(org_name: str) -> str:
     name_lower = org_name.lower()
 
     university_keywords = [
-        "university", "universität", "université", "universidad",
-        "institute of technology", "polytechnic", "college",
-        "school of", "department of", "eth ", "epfl", "mit", "lab ", "laboratory",
+        "university",
+        "universität",
+        "université",
+        "universidad",
+        "institute of technology",
+        "polytechnic",
+        "college",
+        "school of",
+        "department of",
+        "eth ",
+        "epfl",
+        "mit",
+        "lab ",
+        "laboratory",
     ]
     company_keywords = [
-        "google", "microsoft", "meta", "amazon", "apple", "nvidia",
-        "openai", "anthropic", "deepmind", "hugging face", "stability",
+        "google",
+        "microsoft",
+        "meta",
+        "amazon",
+        "apple",
+        "nvidia",
+        "openai",
+        "anthropic",
+        "deepmind",
+        "hugging face",
+        "stability",
     ]
     government_keywords = [
-        "nsf", "nih", "darpa", "ministry",
-        "national", "european", "council",
+        "nsf",
+        "nih",
+        "darpa",
+        "ministry",
+        "national",
+        "european",
+        "council",
     ]
 
     if any(kw in name_lower for kw in university_keywords):

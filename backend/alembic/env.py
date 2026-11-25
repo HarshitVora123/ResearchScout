@@ -3,12 +3,19 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from alembic import context
 from app.config import get_settings
 from app.core.database import Base
+from app.models.db.crawl import CrawlHistory, CrawlSource  # noqa: F401
+from app.models.db.interaction import (  # noqa: F401
+    SavedOpportunity,
+    UserFeedback,
+    UserInteraction,
+)
+from app.models.db.notification import NotificationPreference  # noqa: F401
 
 # Import all models so Alembic can detect them
 from app.models.db.opportunity import Opportunity  # noqa: F401
@@ -19,13 +26,6 @@ from app.models.db.user import (  # noqa: F401
     UserResearchInterest,
     UserSkill,
 )
-from app.models.db.interaction import (  # noqa: F401
-    SavedOpportunity,
-    UserFeedback,
-    UserInteraction,
-)
-from app.models.db.crawl import CrawlHistory, CrawlSource  # noqa: F401
-from app.models.db.notification import NotificationPreference  # noqa: F401
 
 config = context.config
 settings = get_settings()

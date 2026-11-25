@@ -3,6 +3,7 @@ LangGraph Multi-Agent Orchestrator — StateGraph workflow for discovery,
 extraction, validation, deduplication, and notification.
 """
 
+from contextlib import suppress
 from typing import Any, TypedDict
 
 import structlog
@@ -25,6 +26,7 @@ logger = structlog.get_logger(__name__)
 
 # ── LangGraph State Definition ──────────────────────
 
+
 class DiscoveryState(TypedDict):
     """Pipeline state passed across LangGraph nodes."""
 
@@ -42,6 +44,7 @@ class DiscoveryState(TypedDict):
 
 
 # ── Node Implementations ────────────────────────────
+
 
 async def generate_queries_node(state: DiscoveryState) -> dict[str, Any]:
     """Node 1: Generate targeted search queries."""
@@ -100,11 +103,13 @@ async def crawl_node(state: DiscoveryState) -> dict[str, Any]:
             await rate_limiter.wait_and_acquire_async(url)
             res = await crawler.crawl(url)
             if res.status_code == 200 and res.markdown:
-                pages.append({
-                    "url": url,
-                    "title": res.title,
-                    "markdown": res.markdown,
-                })
+                pages.append(
+                    {
+                        "url": url,
+                        "title": res.title,
+                        "markdown": res.markdown,
+                    }
+                )
         except Exception as e:
             logger.warning("crawl_node_failed", url=url[:60], error=str(e))
 
@@ -198,10 +203,8 @@ async def store_node(state: DiscoveryState) -> dict[str, Any]:
             stored += 1
 
             # Dispatch embedding + KG worker
-            try:
+            with suppress(Exception):
                 embed_opportunity.delay(str(db_opp.id))
-            except Exception:
-                pass
 
         await db.commit()
 
@@ -210,6 +213,7 @@ async def store_node(state: DiscoveryState) -> dict[str, Any]:
 
 
 # ── Conditional Routing Functions ───────────────────
+
 
 def should_crawl(state: DiscoveryState) -> str:
     """Check if search produced URLs to crawl."""
@@ -230,6 +234,7 @@ def should_extract(state: DiscoveryState) -> str:
 
 
 # ── Build LangGraph Workflow ────────────────────────
+
 
 def build_discovery_graph():
     """Build and compile the LangGraph StateGraph for discovery."""

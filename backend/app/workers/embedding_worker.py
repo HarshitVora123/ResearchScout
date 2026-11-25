@@ -36,7 +36,7 @@ def embed_opportunity(self, opportunity_id: str):
         return result
     except Exception as exc:
         logger.error("embed_failed", opp_id=opportunity_id, error=str(exc))
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
 
 
 async def _async_embed_opportunity(opportunity_id: str) -> dict:
@@ -54,9 +54,7 @@ async def _async_embed_opportunity(opportunity_id: str) -> dict:
 
     # 1. Load opportunity from DB
     async with async_session_factory() as db:
-        result = await db.execute(
-            select(Opportunity).where(Opportunity.id == UUID(opportunity_id))
-        )
+        result = await db.execute(select(Opportunity).where(Opportunity.id == UUID(opportunity_id)))
         opp = result.scalar_one_or_none()
 
     if not opp:
@@ -156,7 +154,7 @@ def embed_user_profile(self, user_id: str):
         return result
     except Exception as exc:
         logger.error("user_embed_failed", user_id=user_id, error=str(exc))
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
 
 
 async def _async_embed_user(user_id: str) -> dict:

@@ -45,7 +45,9 @@ class BenchmarkEvaluator:
         return 0.0
 
     @staticmethod
-    def ndcg_at_k(recommended_ids: Sequence[str], relevance_scores: dict[str, float], k: int) -> float:
+    def ndcg_at_k(
+        recommended_ids: Sequence[str], relevance_scores: dict[str, float], k: int
+    ) -> float:
         """
         Calculate Normalized Discounted Cumulative Gain (NDCG@K).
 
@@ -126,10 +128,30 @@ class BenchmarkEvaluator:
         - Baseline (Rule Match only)
         """
         ablation_results = {
-            "Full_System": {"MRR@10": 0.892, "NDCG@10": 0.914, "Precision@5": 0.860, "Recall@10": 0.884},
-            "no_KnowledgeGraph": {"MRR@10": 0.741, "NDCG@10": 0.768, "Precision@5": 0.720, "Recall@10": 0.740},
-            "no_VectorEmbeddings": {"MRR@10": 0.685, "NDCG@10": 0.710, "Precision@5": 0.650, "Recall@10": 0.680},
-            "Baseline_RulesOnly": {"MRR@10": 0.520, "NDCG@10": 0.545, "Precision@5": 0.480, "Recall@10": 0.510},
+            "Full_System": {
+                "MRR@10": 0.892,
+                "NDCG@10": 0.914,
+                "Precision@5": 0.860,
+                "Recall@10": 0.884,
+            },
+            "no_KnowledgeGraph": {
+                "MRR@10": 0.741,
+                "NDCG@10": 0.768,
+                "Precision@5": 0.720,
+                "Recall@10": 0.740,
+            },
+            "no_VectorEmbeddings": {
+                "MRR@10": 0.685,
+                "NDCG@10": 0.710,
+                "Precision@5": 0.650,
+                "Recall@10": 0.680,
+            },
+            "Baseline_RulesOnly": {
+                "MRR@10": 0.520,
+                "NDCG@10": 0.545,
+                "Precision@5": 0.480,
+                "Recall@10": 0.510,
+            },
         }
         logger.info("ablation_experiments_completed", variants=list(ablation_results.keys()))
         return ablation_results

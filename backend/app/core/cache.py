@@ -22,12 +22,17 @@ def cache_response(ttl_seconds: int = 300, key_prefix: str = "cache") -> Callabl
         ttl_seconds: Cache time-to-live in seconds (default: 5 minutes)
         key_prefix: Redis key namespace
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Compose cache key from function name and sorted kwargs
             kwargs_str = json.dumps(
-                {k: str(v) for k, v in sorted(kwargs.items()) if k not in ("db", "user", "request")},
+                {
+                    k: str(v)
+                    for k, v in sorted(kwargs.items())
+                    if k not in ("db", "user", "request")
+                },
                 sort_keys=True,
             )
             cache_key = f"{key_prefix}:{func.__name__}:{kwargs_str}"

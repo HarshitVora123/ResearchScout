@@ -30,9 +30,9 @@ from app.agents.tools.content_cleaner import (
 )
 from app.agents.tools.rate_limiter import RedisSyncRateLimiter
 from app.config import get_settings
+from app.core.url_safety import resolve_redirect, validate_public_http_url
 from app.nlp.deadline_parser import parse_deadline
 from app.nlp.keyword_extraction import analyze_text
-from app.core.url_safety import resolve_redirect, validate_public_http_url
 from app.workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -105,10 +105,16 @@ def crawl_url(self, url: str, source_id: str | None = None, render_js: bool = Fa
         duration_ms = int((time.time() - start) * 1000)
         content_hash = hashlib.sha256(raw_html.encode()).hexdigest()
 
-        asyncio.run(_record_crawl_result(
-            source_id, url, response_status, content_hash, duration_ms,
-            None if response_status == 200 else f"HTTP {response_status}",
-        ))
+        asyncio.run(
+            _record_crawl_result(
+                source_id,
+                url,
+                response_status,
+                content_hash,
+                duration_ms,
+                None if response_status == 200 else f"HTTP {response_status}",
+            )
+        )
 
         if response_status != 200:
             logger.warning(
@@ -183,17 +189,17 @@ def crawl_url(self, url: str, source_id: str | None = None, render_js: bool = Fa
             "duration_ms": duration_ms,
         }
 
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as exc:
         logger.warning("crawl_timeout", url=url)
-        raise self.retry(countdown=2**self.request.retries * 15)
+        raise self.retry(countdown=2**self.request.retries * 15) from exc
 
-    except httpx.ConnectError:
+    except httpx.ConnectError as exc:
         logger.warning("crawl_connect_error", url=url)
-        raise self.retry(countdown=2**self.request.retries * 20)
+        raise self.retry(countdown=2**self.request.retries * 20) from exc
 
     except Exception as exc:
         logger.error("crawl_error", url=url, error=str(exc))
-        raise self.retry(exc=exc, countdown=2**self.request.retries * 10)
+        raise self.retry(exc=exc, countdown=2**self.request.retries * 10) from exc
 
 
 @celery_app.task(
@@ -241,7 +247,7 @@ def extract_and_store(
         return result
     except Exception as exc:
         logger.error("extraction_error", url=url, error=str(exc))
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
 
 
 async def _async_extract_and_store(
@@ -320,9 +326,7 @@ async def _async_extract_and_store(
             )
 
             # ── Step 4: Dedup ────────────────────
-            existing = await service.find_by_title_and_org(
-                opp.title, opp.organization
-            )
+            existing = await service.find_by_title_and_org(opp.title, opp.organization)
             if existing:
                 logger.debug(
                     "duplicate_title_org",
@@ -347,6 +351,7 @@ async def _async_extract_and_store(
             # ── Step 6: Queue embedding + KG ingestion ──
             try:
                 from app.workers.embedding_worker import embed_opportunity
+
                 embed_opportunity.delay(str(db_opp.id))
             except Exception as e:
                 logger.warning("embed_dispatch_failed", opp_id=str(db_opp.id), error=str(e))
@@ -372,9 +377,10 @@ async def _record_crawl_result(
     """Persist crawl history and update the source's health counters."""
     from uuid import UUID
 
+    from sqlalchemy import select
+
     from app.core.database import async_session_factory
     from app.models.db.crawl import CrawlHistory, CrawlSource
-    from sqlalchemy import select
 
     parsed_source_id = None
     if source_id:
@@ -383,14 +389,16 @@ async def _record_crawl_result(
         except ValueError:
             parsed_source_id = None
     async with async_session_factory() as db:
-        db.add(CrawlHistory(
-            source_id=parsed_source_id,
-            url=url,
-            status_code=status_code,
-            content_hash=content_hash,
-            duration_ms=duration_ms,
-            error_message=error_message,
-        ))
+        db.add(
+            CrawlHistory(
+                source_id=parsed_source_id,
+                url=url,
+                status_code=status_code,
+                content_hash=content_hash,
+                duration_ms=duration_ms,
+                error_message=error_message,
+            )
+        )
         if parsed_source_id:
             result = await db.execute(select(CrawlSource).where(CrawlSource.id == parsed_source_id))
             source = result.scalar_one_or_none()
@@ -400,7 +408,9 @@ async def _record_crawl_result(
                 source.total_crawls = previous_count + 1
                 source.last_crawled = datetime.now(UTC)
                 source.last_status = status_code
-                source.success_rate = (previous_rate * previous_count + (1 if status_code == 200 else 0)) / (previous_count + 1)
+                source.success_rate = (
+                    previous_rate * previous_count + (1 if status_code == 200 else 0)
+                ) / (previous_count + 1)
         await db.commit()
 
 

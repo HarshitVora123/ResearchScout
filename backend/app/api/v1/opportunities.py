@@ -26,15 +26,18 @@ router = APIRouter()
 )
 async def list_opportunities(
     db: DbSession,
-    opportunity_type: list[str] | None = Query(default=None),
-    country: list[str] | None = Query(default=None),
-    funding_type: list[str] | None = Query(default=None),
+    opportunity_type: list[str] | None = Query(default=None),  # noqa: B008
+    country: list[str] | None = Query(default=None),  # noqa: B008
+    funding_type: list[str] | None = Query(default=None),  # noqa: B008
     research_area: str | None = None,
     query: str | None = None,
     is_active: bool = True,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    sort_by: str = Query(default="date_discovered", pattern="^(date_discovered|deadline|confidence_score|title|organization)$"),
+    sort_by: str = Query(
+        default="date_discovered",
+        pattern="^(date_discovered|deadline|confidence_score|title|organization)$",
+    ),
     sort_order: str = "desc",
 ):
     """
@@ -88,7 +91,6 @@ async def list_opportunities(
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total > 0 else 0,
     )
-
 
 
 @router.get(
@@ -228,15 +230,27 @@ async def get_recommendations(
 
     output = []
     for item in diverse_items:
-        output.append({
-            "opportunity_id": item.opportunity_id,
-            "score": round(item.total_score, 3),
-            "match_reasons": item.match_reasons,
-            "opportunity": item.opportunity_data,
-        })
+        output.append(
+            {
+                "opportunity_id": item.opportunity_id,
+                "score": round(item.total_score, 3),
+                "match_reasons": item.match_reasons,
+                "opportunity": item.opportunity_data,
+            }
+        )
 
     return {"recommendations": output, "total": len(output)}
 
+
+@router.get("/saved", response_model=list[OpportunityBrief], summary="List saved opportunities")
+async def list_saved_opportunities(user: CurrentUser, db: DbSession):
+    result = await db.execute(
+        select(Opportunity)
+        .join(SavedOpportunity, SavedOpportunity.opportunity_id == Opportunity.id)
+        .where(SavedOpportunity.user_id == user.id)
+        .order_by(SavedOpportunity.created_at.desc())
+    )
+    return [OpportunityBrief.model_validate(_normalize_opp(opp)) for opp in result.scalars().all()]
 
 
 @router.get(
@@ -246,9 +260,7 @@ async def get_recommendations(
 )
 async def get_opportunity(opportunity_id: UUID, db: DbSession):
     """Get full details of a specific opportunity."""
-    result = await db.execute(
-        select(Opportunity).where(Opportunity.id == opportunity_id)
-    )
+    result = await db.execute(select(Opportunity).where(Opportunity.id == opportunity_id))
     opportunity = result.scalar_one_or_none()
 
     if not opportunity:
@@ -263,14 +275,10 @@ async def get_opportunity(opportunity_id: UUID, db: DbSession):
     status_code=status.HTTP_201_CREATED,
     summary="Save an opportunity",
 )
-async def save_opportunity(
-    opportunity_id: UUID, user: CurrentUser, db: DbSession
-):
+async def save_opportunity(opportunity_id: UUID, user: CurrentUser, db: DbSession):
     """Save/bookmark an opportunity for later."""
     # Check opportunity exists
-    result = await db.execute(
-        select(Opportunity).where(Opportunity.id == opportunity_id)
-    )
+    result = await db.execute(select(Opportunity).where(Opportunity.id == opportunity_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
@@ -298,25 +306,12 @@ async def save_opportunity(
     return MessageResponse(message="Opportunity saved")
 
 
-@router.get("/saved", response_model=list[OpportunityBrief], summary="List saved opportunities")
-async def list_saved_opportunities(user: CurrentUser, db: DbSession):
-    result = await db.execute(
-        select(Opportunity)
-        .join(SavedOpportunity, SavedOpportunity.opportunity_id == Opportunity.id)
-        .where(SavedOpportunity.user_id == user.id)
-        .order_by(SavedOpportunity.created_at.desc())
-    )
-    return [OpportunityBrief.model_validate(_normalize_opp(opp)) for opp in result.scalars().all()]
-
-
 @router.delete(
     "/{opportunity_id}/save",
     response_model=MessageResponse,
     summary="Unsave an opportunity",
 )
-async def unsave_opportunity(
-    opportunity_id: UUID, user: CurrentUser, db: DbSession
-):
+async def unsave_opportunity(opportunity_id: UUID, user: CurrentUser, db: DbSession):
     """Remove an opportunity from saved list."""
     from sqlalchemy import delete as sql_delete
 

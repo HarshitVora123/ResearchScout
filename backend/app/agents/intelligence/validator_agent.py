@@ -12,13 +12,31 @@ from app.models.schemas.opportunity import ExtractedOpportunity
 # ── Trusted Domain Patterns ──────────────────────────
 TRUSTED_SUFFIXES = {"edu", "ac.uk", "ac.in", "ac.jp", "ac.kr", "edu.au", "edu.sg", "edu.cn"}
 TRUSTED_DOMAINS = {
-    "google.com", "microsoft.com", "openai.com", "anthropic.com",
-    "deepmind.google", "nvidia.com", "amazon.science", "apple.com",
-    "meta.com", "huggingface.co", "github.com", "linkedin.com",
-    "nsf.gov", "nih.gov", "daad.de", "erc.europa.eu",
-    "researchgate.net", "semanticscholar.org",
-    "neurips.cc", "icml.cc", "iclr.cc", "aclanthology.org",
-    "cvpr.thecvf.com", "aaai.org", "kdd.org",
+    "google.com",
+    "microsoft.com",
+    "openai.com",
+    "anthropic.com",
+    "deepmind.google",
+    "nvidia.com",
+    "amazon.science",
+    "apple.com",
+    "meta.com",
+    "huggingface.co",
+    "github.com",
+    "linkedin.com",
+    "nsf.gov",
+    "nih.gov",
+    "daad.de",
+    "erc.europa.eu",
+    "researchgate.net",
+    "semanticscholar.org",
+    "neurips.cc",
+    "icml.cc",
+    "iclr.cc",
+    "aclanthology.org",
+    "cvpr.thecvf.com",
+    "aaai.org",
+    "kdd.org",
 }
 
 # ── Scam Indicators ──────────────────────────────────
@@ -46,27 +64,19 @@ class ValidatorAgent:
     6. Text consistency — does the extraction match the source text?
     """
 
-    async def validate(
-        self, opportunity: ExtractedOpportunity
-    ) -> ValidationReport:
+    async def validate(self, opportunity: ExtractedOpportunity) -> ValidationReport:
         """Run all validation checks and produce a report."""
         scores: dict[str, float] = {}
         issues: list[str] = []
 
         # 1. URL validation
-        scores["url_valid"] = self._check_url_format(
-            opportunity.application_link, issues
-        )
+        scores["url_valid"] = self._check_url_format(opportunity.application_link, issues)
 
         # 2. Domain trust
-        scores["domain_trust"] = self._check_domain_trust(
-            opportunity.source_url, issues
-        )
+        scores["domain_trust"] = self._check_domain_trust(opportunity.source_url, issues)
 
         # 3. Temporal consistency
-        scores["temporal_ok"] = self._check_deadline(
-            opportunity.deadline, issues
-        )
+        scores["temporal_ok"] = self._check_deadline(opportunity.deadline, issues)
 
         # 4. Data completeness
         scores["completeness"] = self._check_completeness(opportunity, issues)
@@ -138,9 +148,7 @@ class ValidatorAgent:
             issues.append("Domain extraction failed")
             return 0.3
 
-    def _check_deadline(
-        self, deadline: datetime | None, issues: list[str]
-    ) -> float:
+    def _check_deadline(self, deadline: datetime | None, issues: list[str]) -> float:
         """Check if the deadline is temporally valid."""
         if deadline is None:
             return 0.5  # No deadline is neutral
@@ -162,9 +170,7 @@ class ValidatorAgent:
 
         return 1.0
 
-    def _check_completeness(
-        self, opp: ExtractedOpportunity, issues: list[str]
-    ) -> float:
+    def _check_completeness(self, opp: ExtractedOpportunity, issues: list[str]) -> float:
         """Score based on how many critical fields are populated."""
         critical_fields = [
             ("title", opp.title),
@@ -185,22 +191,15 @@ class ValidatorAgent:
             issues.append(f"Missing critical fields: {', '.join(missing)}")
 
         # Important fields are nice to have
-        important_score = sum(
-            1 for _, v in important_fields if v
-        ) / len(important_fields)
+        important_score = sum(1 for _, v in important_fields if v) / len(important_fields)
 
         return critical_score * 0.7 + important_score * 0.3
 
-    def _check_scam(
-        self, opp: ExtractedOpportunity, issues: list[str]
-    ) -> float:
+    def _check_scam(self, opp: ExtractedOpportunity, issues: list[str]) -> float:
         """Check for known scam patterns."""
         text_to_check = f"{opp.title} {opp.summary or ''} {opp.raw_text or ''}"
 
-        scam_matches = sum(
-            1 for pattern in SCAM_PATTERNS
-            if re.search(pattern, text_to_check)
-        )
+        scam_matches = sum(1 for pattern in SCAM_PATTERNS if re.search(pattern, text_to_check))
 
         if scam_matches >= 2:
             issues.append(f"Multiple scam indicators detected ({scam_matches} matches)")
@@ -211,9 +210,7 @@ class ValidatorAgent:
 
         return 1.0
 
-    def _check_text_consistency(
-        self, opp: ExtractedOpportunity, issues: list[str]
-    ) -> float:
+    def _check_text_consistency(self, opp: ExtractedOpportunity, issues: list[str]) -> float:
         """Check if key extracted fields appear in the raw text."""
         if not opp.raw_text:
             return 0.5  # Can't verify without raw text

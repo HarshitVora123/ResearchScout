@@ -96,8 +96,8 @@ async def text_search(
 @router.get("/semantic")
 async def semantic_search(
     q: str = Query(..., description="Natural language search query"),
-    limit: int = Query(default=20, ge=1, le=100),
-    opportunity_type: list[str] | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),  # noqa: B008
+    opportunity_type: list[str] | None = Query(default=None),  # noqa: B008
     country: str | None = Query(default=None),
 ):
     """
@@ -139,7 +139,10 @@ async def semantic_search(
     except Exception as e:
         raise HTTPException(
             status_code=503,
-            detail="Semantic search is temporarily unavailable. Use the basic text search endpoint instead.",
+            detail=(
+                "Semantic search is temporarily unavailable. "
+                "Use the basic text search endpoint instead."
+            ),
         ) from e
 
 
@@ -186,4 +189,6 @@ async def find_similar(
             "total": len(results),
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail="Similar search is temporarily unavailable.") from e
+        raise HTTPException(
+            status_code=503, detail="Similar search is temporarily unavailable."
+        ) from e

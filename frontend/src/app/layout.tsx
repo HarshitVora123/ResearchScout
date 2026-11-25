@@ -1,26 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import { AuthProvider } from '@/lib/auth-context';
 
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter',
-});
-
 export const metadata: Metadata = {
-  title: 'ResearchScout — AI-Powered Research Opportunity Discovery',
+  title: 'ResearchScout — Research opportunities',
   description:
-    'Discover PhD positions, internships, fellowships, and scholarships worldwide. AI agents automatically find, verify, and recommend research opportunities personalized to your profile.',
+    'Find PhD positions, internships, fellowships, and scholarships. Search by research area, role, location, and deadline.',
   keywords: [
     'research opportunities',
     'PhD positions',
     'research internship',
     'fellowship',
     'scholarship',
-    'AI research',
+    'research jobs',
     'machine learning',
   ],
 };
@@ -31,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
         <AuthProvider>
           <Navbar />

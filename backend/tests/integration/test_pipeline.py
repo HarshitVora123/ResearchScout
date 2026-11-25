@@ -5,15 +5,15 @@ Uses mocked search results and a sample HTML page to test the complete pipeline:
 search → crawl → NLP filter → extract → validate → dedup → store
 """
 
+from datetime import UTC
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.agents.discovery.query_generator import generate_search_queries
-from app.agents.tools.content_cleaner import html_to_markdown
-from app.nlp.keyword_extraction import analyze_text
 from app.agents.intelligence.validator_agent import ValidatorAgent
+from app.agents.tools.content_cleaner import html_to_markdown
 from app.models.schemas.opportunity import ExtractedOpportunity
-
+from app.nlp.keyword_extraction import analyze_text
 
 # ── Sample HTML for testing ──────────────────────────
 SAMPLE_OPPORTUNITY_HTML = """
@@ -105,7 +105,7 @@ class TestEndToEndPipeline:
     @pytest.mark.asyncio
     async def test_validation_on_extracted(self):
         """Step 5: Validator accepts a well-formed opportunity."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime
 
         opp = ExtractedOpportunity(
             title="PhD Position in Natural Language Processing",
@@ -119,7 +119,7 @@ class TestEndToEndPipeline:
             required_skills=["Python", "PyTorch", "Deep Learning"],
             programming_languages=["Python"],
             funding_type="Fully Funded",
-            deadline=datetime(2025, 3, 15, tzinfo=timezone.utc),
+            deadline=datetime(2025, 3, 15, tzinfo=UTC),
             professor="Prof. Example",
             professor_email="example@ethz.ch",
             raw_text="PhD Position in Natural Language Processing at ETH Zurich",
@@ -161,7 +161,6 @@ class TestEndToEndPipeline:
         # Steps 4 (LLM extraction) would go here — skipped
 
         # Step 5: Manually construct what LLM would extract
-        from datetime import datetime, timezone
         opp = ExtractedOpportunity(
             title="PhD Position in Natural Language Processing",
             organization="ETH Zurich",
@@ -177,6 +176,7 @@ class TestEndToEndPipeline:
 
         # Enrich with NLP deadline
         from app.nlp.deadline_parser import parse_deadline
+
         if nlp_result.deadline_str:
             opp.deadline = parse_deadline(nlp_result.deadline_str)
 

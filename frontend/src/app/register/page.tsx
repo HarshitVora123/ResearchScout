@@ -22,8 +22,8 @@ export default function RegisterPage() {
     try {
       await register(email, password, fullName);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -34,7 +34,7 @@ export default function RegisterPage() {
       <div className="glass-card auth-card animate-in">
         <h1 className="auth-title">Create your profile</h1>
         <p className="auth-subtitle">
-          Join thousands of researchers discovering opportunities with AI
+          Save your interests and keep useful opportunities together.
         </p>
 
         {error && <div className="auth-error">{error}</div>}

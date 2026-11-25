@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import OpportunityCard from '@/components/OpportunityCard';
 import type { OpportunityBrief, PaginatedResponse } from '@/lib/api';
 import { getOpportunities } from '@/lib/api';
@@ -19,19 +20,46 @@ const COUNTRIES = [
 ];
 
 export default function OpportunitiesPage() {
+  return (
+    <Suspense fallback={<div className="container" style={{ padding: 48 }}>Loading opportunities…</div>}>
+      <OpportunitiesPageWithParams />
+    </Suspense>
+  );
+}
+
+function OpportunitiesPageWithParams() {
+  const searchParams = useSearchParams();
+  return (
+    <OpportunitiesList
+      key={searchParams.toString()}
+      initialSearch={searchParams.get('query') || searchParams.get('q') || ''}
+      initialType={searchParams.get('type') || ''}
+      initialCountry={searchParams.get('country') || ''}
+    />
+  );
+}
+
+function OpportunitiesList({
+  initialSearch,
+  initialType,
+  initialCountry,
+}: {
+  initialSearch: string;
+  initialType: string;
+  initialCountry: string;
+}) {
   const [data, setData] = useState<PaginatedResponse<OpportunityBrief> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const loading = data === null;
+  const [search, setSearch] = useState(initialSearch);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(initialType ? [initialType] : []);
   const [selectedFunding, setSelectedFunding] = useState<string[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(initialCountry ? [initialCountry] : []);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState('date_discovered');
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await getOpportunities({
+  useEffect(() => {
+    let cancelled = false;
+    getOpportunities({
         opportunity_type: selectedTypes.length ? selectedTypes : undefined,
         funding_type: selectedFunding.length ? selectedFunding : undefined,
         country: selectedCountries.length ? selectedCountries : undefined,
@@ -40,30 +68,13 @@ export default function OpportunitiesPage() {
         page_size: 12,
         sort_by: sortBy,
         sort_order: 'desc',
-      });
-      setData(result);
-    } catch (err) {
+      }).then((result) => {
+        if (!cancelled) setData(result);
+      }).catch((err: unknown) => {
       console.error('Failed to fetch opportunities:', err);
-    } finally {
-      setLoading(false);
-    }
+      });
+    return () => { cancelled = true; };
   }, [selectedTypes, selectedFunding, selectedCountries, search, page, sortBy]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const q = params.get('query') || params.get('q');
-      if (q) setSearch(q);
-      const type = params.get('type');
-      if (type) setSelectedTypes([type]);
-      const country = params.get('country');
-      if (country) setSelectedCountries([country]);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   function toggleFilter(list: string[], setter: (v: string[]) => void, value: string) {
     setter(

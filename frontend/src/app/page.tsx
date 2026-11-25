@@ -2,42 +2,35 @@ import Link from 'next/link';
 
 const features = [
   {
-    icon: '🤖',
-    title: 'AI-Powered Discovery',
-    desc: 'Autonomous agents search, crawl, and extract research opportunities from thousands of sources across the global internet — 24/7.',
+    icon: '🔎',
+    title: 'Search research roles',
+    desc: 'Browse PhD positions, internships, fellowships, and scholarships in one place.',
   },
   {
     icon: '🎯',
     title: 'Personalized Matching',
-    desc: 'Multi-signal ranking engine matches opportunities to your skills, publications, research interests, and career goals.',
+    desc: 'Add your research interests and skills to see relevant openings more easily.',
   },
   {
     icon: '🛡️',
     title: 'Verified & Trusted',
-    desc: 'Every opportunity passes 6 validation checks including scam detection, domain trust scoring, and hallucination detection.',
+    desc: 'Each listing links back to its source so you can check the details before applying.',
   },
   {
     icon: '🧠',
-    title: 'Knowledge Graph',
-    desc: 'Neo4j-powered knowledge graph connects researchers, organizations, topics, and opportunities for deep insights.',
+    title: 'Useful filters',
+    desc: 'Narrow results by location, subject, role type, funding, or deadline.',
   },
   {
     icon: '⚡',
-    title: 'Real-time Alerts',
-    desc: 'Get notified instantly via email, Telegram, or Discord when new opportunities matching your profile are discovered.',
+    title: 'Save your search',
+    desc: 'Keep track of the openings you want to revisit while you prepare an application.',
   },
   {
     icon: '📊',
-    title: 'Smart Analytics',
-    desc: 'Track application progress, analyze trends, and get AI-generated cover letters and professor email drafts.',
+    title: 'Application help',
+    desc: 'Use the available application tools to organize your materials and draft outreach.',
   },
-];
-
-const stats = [
-  { value: '10K+', label: 'Opportunities' },
-  { value: '500+', label: 'Sources' },
-  { value: '20+', label: 'AI Agents' },
-  { value: '50+', label: 'Countries' },
 ];
 
 export default function HomePage() {
@@ -51,9 +44,8 @@ export default function HomePage() {
             <span className="gradient-text">Research Opportunity</span>
           </h1>
           <p className="hero-subtitle animate-in animate-delay-1">
-            AI agents autonomously discover PhD positions, internships,
-            fellowships, and scholarships from thousands of sources worldwide —
-            personalized to your research profile.
+            Search PhD positions, internships, fellowships, and scholarships.
+            Filter by field and location, then follow the source link for details.
           </p>
 
           <div className="hero-actions animate-in animate-delay-2">
@@ -94,14 +86,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="hero-stats animate-in animate-delay-3">
-            {stats.map((stat) => (
-              <div key={stat.label} className="glass-card stat-card">
-                <div className="stat-value">{stat.value}</div>
-                <div className="stat-label">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -109,10 +93,10 @@ export default function HomePage() {
       <section className="container">
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h2 className="page-title animate-in">
-            Powered by <span className="gradient-text">Multi-Agent AI</span>
+            Made for your search
           </h2>
           <p className="page-subtitle animate-in animate-delay-1">
-            20+ specialized agents work together to discover, verify, and recommend opportunities
+            Practical tools to find openings and keep your applications organized.
           </p>
         </div>
 
@@ -132,8 +116,7 @@ export default function HomePage() {
         <div className="glass-card" style={{ padding: '60px 40px', maxWidth: '700px', margin: '0 auto' }}>
           <h2 className="page-title">Ready to find your next position?</h2>
           <p className="page-subtitle" style={{ marginBottom: '32px' }}>
-            Create a free profile and let our AI agents find opportunities tailored to your
-            research interests and skills.
+            Create a profile to save your interests and get started browsing.
           </p>
           <Link href="/register" className="btn btn-accent btn-lg">
             Get Started — It&apos;s Free
@@ -150,7 +133,7 @@ export default function HomePage() {
         fontSize: '13px',
       }}>
         <div className="container">
-          <p>© 2025 ResearchScout. Built with AI agents for researchers worldwide.</p>
+          <p>© 2026 ResearchScout</p>
         </div>
       </footer>
     </>

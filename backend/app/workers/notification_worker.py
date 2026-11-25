@@ -23,7 +23,7 @@ def send_email(self, to_email: str, subject: str, body: str):
     try:
         sent = asyncio.run(NotifierAgent().send_email(to_email, subject, body))
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
     if not sent:
         raise self.retry(exc=RuntimeError("Email delivery failed"), countdown=30)
     return {"to": to_email, "subject": subject, "status": "sent" if sent else "failed"}
@@ -45,7 +45,7 @@ def send_telegram(self, chat_id: str, message: str):
     try:
         sent = asyncio.run(NotifierAgent().send_telegram(chat_id, message))
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
     if not sent:
         raise self.retry(exc=RuntimeError("Telegram delivery failed"), countdown=30)
     return {"chat_id": chat_id, "status": "sent" if sent else "failed"}
@@ -97,8 +97,10 @@ async def _send_daily_digest() -> dict:
         )
         users = users_result.scalars().unique().all()
         opp_result = await db.execute(
-            select(Opportunity).where(Opportunity.is_active.is_(True), Opportunity.date_discovered >= cutoff)
-            .order_by(Opportunity.confidence_score.desc()).limit(20)
+            select(Opportunity)
+            .where(Opportunity.is_active.is_(True), Opportunity.date_discovered >= cutoff)
+            .order_by(Opportunity.confidence_score.desc())
+            .limit(20)
         )
         opportunities = opp_result.scalars().all()
 
@@ -106,15 +108,29 @@ async def _send_daily_digest() -> dict:
     sent = 0
     failed = 0
     for user in users:
-        html = notifier.generate_daily_digest_html(user.full_name, [
-            {"opportunity": {"title": o.title, "organization": o.organization, "country": o.country}}
-            for o in opportunities
-        ])
+        html = notifier.generate_daily_digest_html(
+            user.full_name,
+            [
+                {
+                    "opportunity": {
+                        "title": o.title,
+                        "organization": o.organization,
+                        "country": o.country,
+                    }
+                }
+                for o in opportunities
+            ],
+        )
         if await notifier.send_email(user.email, "Your ResearchScout daily digest", html):
             sent += 1
         else:
             failed += 1
-    return {"status": "complete", "sent": sent, "failed": failed, "timestamp": datetime.now(UTC).isoformat()}
+    return {
+        "status": "complete",
+        "sent": sent,
+        "failed": failed,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
 
 
 @celery_app.task(name="app.workers.notification_worker.send_deadline_reminders", queue="default")
@@ -157,21 +173,41 @@ async def _send_deadline_reminders() -> dict:
         users = result.scalars().unique().all()
         opp_result = await db.execute(
             select(Opportunity)
-            .where(Opportunity.is_active.is_(True), Opportunity.deadline >= cutoff,
-                   Opportunity.deadline <= now + timedelta(days=7))
-            .order_by(Opportunity.deadline.asc()).limit(100)
+            .where(
+                Opportunity.is_active.is_(True),
+                Opportunity.deadline >= cutoff,
+                Opportunity.deadline <= now + timedelta(days=7),
+            )
+            .order_by(Opportunity.deadline.asc())
+            .limit(100)
         )
         opportunities = opp_result.scalars().all()
 
     notifier = NotifierAgent()
     sent = failed = 0
     for user in users:
-        html = notifier.generate_daily_digest_html(user.full_name, [
-            {"opportunity": {"title": o.title, "organization": o.organization,
-                             "country": o.country, "deadline": o.deadline.isoformat() if o.deadline else ""}}
-            for o in opportunities
-        ])
-        delivered = await notifier.send_email(user.email, "ResearchScout: upcoming application deadlines", html)
+        html = notifier.generate_daily_digest_html(
+            user.full_name,
+            [
+                {
+                    "opportunity": {
+                        "title": o.title,
+                        "organization": o.organization,
+                        "country": o.country,
+                        "deadline": o.deadline.isoformat() if o.deadline else "",
+                    }
+                }
+                for o in opportunities
+            ],
+        )
+        delivered = await notifier.send_email(
+            user.email, "ResearchScout: upcoming application deadlines", html
+        )
         sent += int(delivered)
         failed += int(not delivered)
-    return {"status": "complete", "sent": sent, "failed": failed, "timestamp": datetime.now(UTC).isoformat()}
+    return {
+        "status": "complete",
+        "sent": sent,
+        "failed": failed,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }

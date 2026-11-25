@@ -2,34 +2,38 @@
 
 import pytest
 
-from app.agents.user_facing.notifier_agent import NotifierAgent
+from app.agents.user_facing import notifier_agent
 from app.agents.user_facing.application_assistant import ApplicationAssistantAgent
+from app.agents.user_facing.notifier_agent import NotifierAgent
 
 
 class TestNotifierAgent:
     """Test notification formatting and dispatch."""
 
     @pytest.mark.asyncio
-    async def test_send_email_mock(self):
+    async def test_send_email_without_provider_credentials(self, monkeypatch):
+        monkeypatch.setattr(notifier_agent.settings, "sendgrid_api_key", "")
         notifier = NotifierAgent()
         res = await notifier.send_email(
             to_email="user@example.com",
             subject="Test Subject",
             html_content="<p>Test</p>",
         )
-        assert res is True
+        assert res is False
 
     @pytest.mark.asyncio
-    async def test_send_telegram_mock(self):
+    async def test_send_telegram_without_provider_credentials(self, monkeypatch):
+        monkeypatch.setattr(notifier_agent.settings, "telegram_bot_token", "")
         notifier = NotifierAgent()
         res = await notifier.send_telegram("12345", "Test message")
-        assert res is True
+        assert res is False
 
     @pytest.mark.asyncio
-    async def test_send_discord_mock(self):
+    async def test_send_discord_without_provider_credentials(self, monkeypatch):
+        monkeypatch.setattr(notifier_agent.settings, "discord_webhook_url", "")
         notifier = NotifierAgent()
         res = await notifier.send_discord(None, "Title", "Desc")
-        assert res is True
+        assert res is False
 
     def test_daily_digest_html_formatting(self):
         notifier = NotifierAgent()

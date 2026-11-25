@@ -1,5 +1,6 @@
 """User profile endpoints — view, update, skills, publications, projects."""
 
+import re
 from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -54,9 +55,7 @@ async def get_profile(user: CurrentUser, db: DbSession):
     response_model=UserProfileResponse,
     summary="Update user profile",
 )
-async def update_profile(
-    request: UserProfileUpdateRequest, user: CurrentUser, db: DbSession
-):
+async def update_profile(request: UserProfileUpdateRequest, user: CurrentUser, db: DbSession):
     """Update the current user's profile fields."""
     update_data = request.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -80,6 +79,7 @@ async def update_profile(
 
 
 # ── Skills ───────────────────────────────────────────
+
 
 @router.post(
     "/profile/skills",
@@ -107,9 +107,7 @@ async def add_skill(request: SkillCreateRequest, user: CurrentUser, db: DbSessio
 async def remove_skill(skill_id: UUID, user: CurrentUser, db: DbSession):
     """Remove a skill from the current user's profile."""
     result = await db.execute(
-        delete(UserSkill).where(
-            UserSkill.id == skill_id, UserSkill.user_id == user.id
-        )
+        delete(UserSkill).where(UserSkill.id == skill_id, UserSkill.user_id == user.id)
     )
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Skill not found")
@@ -118,15 +116,14 @@ async def remove_skill(skill_id: UUID, user: CurrentUser, db: DbSession):
 
 # ── Publications ─────────────────────────────────────
 
+
 @router.post(
     "/profile/publications",
     response_model=MessageResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Add a publication",
 )
-async def add_publication(
-    request: PublicationCreateRequest, user: CurrentUser, db: DbSession
-):
+async def add_publication(request: PublicationCreateRequest, user: CurrentUser, db: DbSession):
     """Add a publication to the current user's profile."""
     pub = UserPublication(
         user_id=user.id,
@@ -142,15 +139,14 @@ async def add_publication(
 
 # ── Projects ─────────────────────────────────────────
 
+
 @router.post(
     "/profile/projects",
     response_model=MessageResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Add a project",
 )
-async def add_project(
-    request: ProjectCreateRequest, user: CurrentUser, db: DbSession
-):
+async def add_project(request: ProjectCreateRequest, user: CurrentUser, db: DbSession):
     """Add a project to the current user's profile."""
     project = UserProject(
         user_id=user.id,
@@ -166,6 +162,7 @@ async def add_project(
 
 
 # ── Research Interests ───────────────────────────────
+
 
 @router.post(
     "/profile/research-interests",
@@ -193,7 +190,7 @@ async def add_research_interest(
 async def upload_resume(
     user: CurrentUser,
     db: DbSession,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
 ):
     """
     Upload a resume (PDF, DOCX, or TXT) for parsing, profile enrichment,
@@ -222,7 +219,9 @@ async def upload_resume(
     elif ext == "pdf":
         try:
             import io
+
             import pypdf
+
             reader = pypdf.PdfReader(io.BytesIO(content_bytes))
             if len(reader.pages) > 100:
                 raise HTTPException(status_code=413, detail="Resume PDF cannot exceed 100 pages")
@@ -230,36 +229,89 @@ async def upload_resume(
         except HTTPException:
             raise
         except Exception as exc:
-            raise HTTPException(status_code=400, detail="The uploaded PDF could not be read") from exc
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded PDF could not be read",
+            ) from exc
     elif ext == "docx":
         try:
             import io
+
             import docx
+
             doc = docx.Document(io.BytesIO(content_bytes))
-            raw_text = "\n".join([p.text for p in doc.paragraphs])
+            paragraph_text = [p.text for p in doc.paragraphs]
+            table_text = [
+                cell.text for table in doc.tables for row in table.rows for cell in row.cells
+            ]
+            raw_text = "\n".join(paragraph_text + table_text)
         except Exception as exc:
-            raise HTTPException(status_code=400, detail="The uploaded DOCX could not be read") from exc
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded DOCX could not be read",
+            ) from exc
 
     if not raw_text.strip():
         raw_text = content_bytes.decode("utf-8", errors="ignore")
 
     # ── Parse resume ─────────────────────────────────
     from app.nlp.resume_parser import ResumeParser
+
     parser = ResumeParser()
     parsed = parser.parse_text(raw_text)
 
     # ── Track profile updates ────────────────────────
     profile_updates: dict[str, object] = {}
 
-    if parsed.university and not user.university:
+    replacing_malformed_education = bool(
+        parsed.university
+        and user.university
+        and re.search(r"\b(?:c?gpa|gpa)\s*[:\-]", user.university, re.IGNORECASE)
+    )
+    if parsed.university and (not user.university or replacing_malformed_education):
         user.university = parsed.university
         profile_updates["university"] = parsed.university
     if parsed.degree_level and not user.degree_level:
         user.degree_level = parsed.degree_level
         profile_updates["degree_level"] = parsed.degree_level
-    if parsed.gpa and not user.gpa:
+    if parsed.gpa and (not user.gpa or replacing_malformed_education):
         user.gpa = parsed.gpa
         profile_updates["gpa"] = parsed.gpa
+
+    # Save extracted projects and publications; the previous flow returned them
+    # to the upload preview but never persisted them to the dashboard profile.
+    existing_projects = {
+        project.title.strip().casefold() for project in (user.projects or []) if project.title
+    }
+    projects_added: list[str] = []
+    for project in parsed.projects:
+        title = str(project.get("title", "")).strip()
+        if not title or title.casefold() in existing_projects:
+            continue
+        db.add(
+            UserProject(
+                user_id=user.id,
+                title=title,
+                description=project.get("description"),
+                technologies=project.get("technologies") or [],
+            )
+        )
+        existing_projects.add(title.casefold())
+        projects_added.append(title)
+
+    existing_publications = {
+        publication.title.strip().casefold()
+        for publication in (user.publications or [])
+        if publication.title
+    }
+    publications_added: list[str] = []
+    for publication in parsed.publications:
+        title = str(publication.get("title", "")).strip()
+        if not title or title.casefold() in existing_publications:
+            continue
+        db.add(UserPublication(user_id=user.id, title=title))
+        existing_publications.add(title.casefold())
+        publications_added.append(title)
 
     # Add extracted skills (deduplicate)
     existing_skills = {s.skill_name.lower() for s in (user.skills or [])}
@@ -283,8 +335,18 @@ async def upload_resume(
         profile_updates["skills_added"] = new_skills
     if new_interests:
         profile_updates["research_interests_added"] = new_interests
+    if projects_added:
+        profile_updates["projects_added"] = projects_added
+    if publications_added:
+        profile_updates["publications_added"] = publications_added
 
     await db.commit()
+    # CurrentUser eagerly loaded these collections before extraction. Refresh
+    # them so the same request session (and immediate profile refresh) sees new rows.
+    await db.refresh(
+        user,
+        attribute_names=["skills", "publications", "projects", "research_interests"],
+    )
 
     # ── Build user profile dict for matching ─────────
     # Refresh skills/interests to include newly added ones
@@ -325,7 +387,12 @@ async def upload_resume(
         opp_degree_levels = opp.degree_levels or []
 
         # Deserialize if stored as JSON strings (SQLite compat)
-        for attr_name in ("research_areas", "required_skills", "programming_languages", "degree_levels"):
+        for attr_name in (
+            "research_areas",
+            "required_skills",
+            "programming_languages",
+            "degree_levels",
+        ):
             val = getattr(opp, attr_name, None)
             if isinstance(val, str):
                 try:
@@ -369,12 +436,16 @@ async def upload_resume(
         if user_deg:
             opp_type = opp.opportunity_type or ""
             opp_degs_lower = [d.lower() for d in opp_degree_levels]
-            if user_deg in opp_degs_lower:
-                degree_fit = "Eligible"
-            elif (
+            if user_deg in opp_degs_lower or (
                 ("phd" in user_deg and opp_type in ("Postdoc", "AI Residency"))
-                or ("master" in user_deg and opp_type in ("PhD", "Research Assistant", "AI Residency"))
-                or ("bachelor" in user_deg and opp_type in ("Internship", "Scholarship", "PhD", "Master"))
+                or (
+                    "master" in user_deg
+                    and opp_type in ("PhD", "Research Assistant", "AI Residency")
+                )
+                or (
+                    "bachelor" in user_deg
+                    and opp_type in ("Internship", "Scholarship", "PhD", "Master")
+                )
             ):
                 degree_fit = "Eligible"
             elif opp_degs_lower:
@@ -396,31 +467,33 @@ async def upload_resume(
         # Composite eligibility score (0-100)
         eligibility_score = int(round(rule_score * 100))
 
-        matched_opportunities.append({
-            "opportunity_id": str(opp.id),
-            "opportunity": {
-                "title": opp.title,
-                "organization": opp.organization,
-                "opportunity_type": opp.opportunity_type,
-                "country": opp.country,
-                "city": opp.city,
-                "research_areas": opp_research_areas,
-                "required_skills": opp_required_skills,
-                "funding_type": opp.funding_type,
-                "deadline": opp.deadline.isoformat() if opp.deadline else None,
-                "summary": opp.summary,
-                "application_link": opp.application_link,
-            },
-            "eligibility_score": eligibility_score,
-            "skill_match": {
-                "matched": matched_skills,
-                "missing": missing_skills,
-                "overlap_pct": int(round(overlap_pct * 100)),
-            },
-            "degree_fit": degree_fit,
-            "research_alignment": sorted(set(aligned_areas)),
-            "match_reasons": reasons,
-        })
+        matched_opportunities.append(
+            {
+                "opportunity_id": str(opp.id),
+                "opportunity": {
+                    "title": opp.title,
+                    "organization": opp.organization,
+                    "opportunity_type": opp.opportunity_type,
+                    "country": opp.country,
+                    "city": opp.city,
+                    "research_areas": opp_research_areas,
+                    "required_skills": opp_required_skills,
+                    "funding_type": opp.funding_type,
+                    "deadline": opp.deadline.isoformat() if opp.deadline else None,
+                    "summary": opp.summary,
+                    "application_link": opp.application_link,
+                },
+                "eligibility_score": eligibility_score,
+                "skill_match": {
+                    "matched": matched_skills,
+                    "missing": missing_skills,
+                    "overlap_pct": int(round(overlap_pct * 100)),
+                },
+                "degree_fit": degree_fit,
+                "research_alignment": sorted(set(aligned_areas)),
+                "match_reasons": reasons,
+            }
+        )
 
     # Sort by eligibility score descending
     matched_opportunities.sort(key=lambda x: x["eligibility_score"], reverse=True)
@@ -443,4 +516,3 @@ async def upload_resume(
         "profile_updates": profile_updates,
         "matched_opportunities": matched_opportunities,
     }
-

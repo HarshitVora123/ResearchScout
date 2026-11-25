@@ -17,8 +17,12 @@ def _normalize_opp(opp: Opportunity | None) -> Opportunity | None:
     if not opp:
         return None
     list_fields = [
-        "research_areas", "keywords", "required_skills",
-        "programming_languages", "degree_levels", "documents_required"
+        "research_areas",
+        "keywords",
+        "required_skills",
+        "programming_languages",
+        "degree_levels",
+        "documents_required",
     ]
     for field in list_fields:
         val = getattr(opp, field, None)
@@ -38,9 +42,7 @@ class OpportunityService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_from_extraction(
-        self, extracted: ExtractedOpportunity
-    ) -> Opportunity:
+    async def create_from_extraction(self, extracted: ExtractedOpportunity) -> Opportunity:
         """Create a new opportunity from an extracted record."""
         opp = Opportunity(
             id=uuid.uuid4(),
@@ -60,7 +62,8 @@ class OpportunityService:
             programming_languages=extracted.programming_languages or [],
             required_gpa=extracted.required_gpa,
             eligibility_criteria={"criteria": extracted.eligibility_criteria}
-            if extracted.eligibility_criteria else None,
+            if extracted.eligibility_criteria
+            else None,
             degree_levels=extracted.degree_levels or [],
             publications_required=extracted.publications_required,
             recommendation_letters=extracted.recommendation_letters,
@@ -96,25 +99,23 @@ class OpportunityService:
         )
         return _normalize_opp(result.scalar_one_or_none())
 
-    async def find_by_title_and_org(
-        self, title: str, organization: str
-    ) -> Opportunity | None:
+    async def find_by_title_and_org(self, title: str, organization: str) -> Opportunity | None:
         """Find an opportunity by title + org (for dedup)."""
         result = await self.db.execute(
-            select(Opportunity).where(
+            select(Opportunity)
+            .where(
                 and_(
                     func.lower(Opportunity.title) == title.lower(),
                     func.lower(Opportunity.organization) == organization.lower(),
                 )
-            ).limit(1)
+            )
+            .limit(1)
         )
         return _normalize_opp(result.scalar_one_or_none())
 
     async def get_by_id(self, opp_id: uuid.UUID) -> Opportunity | None:
         """Fetch a single opportunity by UUID."""
-        result = await self.db.execute(
-            select(Opportunity).where(Opportunity.id == opp_id)
-        )
+        result = await self.db.execute(select(Opportunity).where(Opportunity.id == opp_id))
         return _normalize_opp(result.scalar_one_or_none())
 
     async def list_active(self, page: int = 1, page_size: int = 20) -> list[Opportunity]:
@@ -132,9 +133,7 @@ class OpportunityService:
         opps = result.scalars().all()
         return [_normalize_opp(o) for o in opps]  # type: ignore
 
-    async def update_opportunity(
-        self, opp_id: uuid.UUID, **kwargs: object
-    ) -> None:
+    async def update_opportunity(self, opp_id: uuid.UUID, **kwargs: object) -> None:
         """Update an existing opportunity."""
         await self.db.execute(
             update(Opportunity)
@@ -217,4 +216,3 @@ class CrawlSourceService:
             if last_crawled <= now - timedelta(hours=source.crawl_frequency_hours):
                 due.append(source)
         return due[:limit]
-

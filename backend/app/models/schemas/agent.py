@@ -1,14 +1,14 @@
 """Pydantic schemas for inter-agent communication."""
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class AgentType(str, Enum):
+class AgentType(StrEnum):
     """All available agent types."""
 
     ORCHESTRATOR = "orchestrator"
@@ -34,7 +34,7 @@ class AgentType(str, Enum):
     ANALYTICS = "analytics"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """Status of an agent task."""
 
     PENDING = "pending"

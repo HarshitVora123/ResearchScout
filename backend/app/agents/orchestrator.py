@@ -90,7 +90,7 @@ class DiscoveryPipeline:
             try:
                 results = await self.search_agent.search(
                     query=query,
-                    engines=search_engines or ["google", "tavily"],
+                    engines=search_engines or ["google", "bing", "tavily"],
                     max_results=5,
                 )
                 all_results.extend(results)
@@ -116,11 +116,13 @@ class DiscoveryPipeline:
                 crawl_result = await self.crawler_agent.crawl(url)
 
                 if crawl_result.status_code == 200 and crawl_result.markdown:
-                    crawled_pages.append({
-                        "url": url,
-                        "title": crawl_result.title,
-                        "markdown": crawl_result.markdown,
-                    })
+                    crawled_pages.append(
+                        {
+                            "url": url,
+                            "title": crawl_result.title,
+                            "markdown": crawl_result.markdown,
+                        }
+                    )
             except Exception as e:
                 logger.warning("crawl_failed", url=url[:100], error=str(e))
 
@@ -213,9 +215,7 @@ class DiscoveryPipeline:
         logger.info("pipeline_complete", **summary)
         return summary
 
-    async def _store_opportunities(
-        self, opportunities: list[ExtractedOpportunity]
-    ) -> int:
+    async def _store_opportunities(self, opportunities: list[ExtractedOpportunity]) -> int:
         """Dedup and store validated opportunities in PostgreSQL."""
         from app.core.database import async_session_factory
         from app.services.opportunity_service import OpportunityService
@@ -228,9 +228,7 @@ class DiscoveryPipeline:
 
             for opp in opportunities:
                 # A source page can contain multiple distinct openings; dedup by listing identity.
-                existing = await service.find_by_title_and_org(
-                    opp.title, opp.organization
-                )
+                existing = await service.find_by_title_and_org(opp.title, opp.organization)
                 if existing:
                     continue
 

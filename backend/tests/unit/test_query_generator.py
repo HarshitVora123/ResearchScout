@@ -1,8 +1,8 @@
 """Unit tests for the search query generator."""
 
 from app.agents.discovery.query_generator import (
-    generate_search_queries,
     generate_monitoring_queries,
+    generate_search_queries,
 )
 
 

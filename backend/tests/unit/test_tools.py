@@ -1,23 +1,21 @@
 """Unit tests for content cleaning and rate limiting utilities."""
 
-import pytest
-
 from app.agents.tools.content_cleaner import (
-    html_to_markdown,
-    extract_page_title,
     extract_meta_description,
+    extract_page_title,
+    html_to_markdown,
     truncate_for_llm,
 )
 from app.agents.tools.rate_limiter import (
+    InMemoryRateLimiter,
     get_domain,
     get_rate_for_domain,
-    InMemoryRateLimiter,
 )
-
 
 # ══════════════════════════════════════════════════════
 # Content Cleaner Tests
 # ══════════════════════════════════════════════════════
+
 
 class TestContentCleaner:
     """Test HTML-to-markdown cleaning."""
@@ -60,7 +58,10 @@ class TestContentCleaner:
         assert title == "PhD Position - MIT"
 
     def test_extract_meta_description(self):
-        html = '<html><head><meta name="description" content="Apply for our PhD program"></head></html>'
+        html = (
+            '<html><head><meta name="description" '
+            'content="Apply for our PhD program"></head></html>'
+        )
         desc = extract_meta_description(html)
         assert "PhD program" in desc
 
@@ -78,6 +79,7 @@ class TestContentCleaner:
 # ══════════════════════════════════════════════════════
 # Rate Limiter Tests
 # ══════════════════════════════════════════════════════
+
 
 class TestRateLimiter:
     """Test rate limiting utilities."""

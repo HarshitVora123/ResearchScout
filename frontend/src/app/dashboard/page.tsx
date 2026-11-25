@@ -68,8 +68,8 @@ export default function DashboardPage() {
       const result = await triggerDiscovery(token, topicList);
       setDiscoveryMsg(result.message);
       setTopics('');
-    } catch (err: any) {
-      setDiscoveryMsg(err.message || 'Discovery failed');
+    } catch (err: unknown) {
+      setDiscoveryMsg(err instanceof Error ? err.message : 'Discovery failed');
     } finally {
       setDiscovering(false);
     }
@@ -95,8 +95,8 @@ export default function DashboardPage() {
       } catch {
         // Silently preserve existing profile state
       }
-    } catch (err: any) {
-      setResumeError(err.message || 'Failed to upload resume. Please try again.');
+    } catch (err: unknown) {
+      setResumeError(err instanceof Error ? err.message : 'Failed to upload resume. Please try again.');
     } finally {
       setUploadingResume(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -155,7 +155,7 @@ export default function DashboardPage() {
               🔍 Discover New Opportunities
             </h2>
             <p style={{ fontSize: '14px', color: 'hsl(var(--text-secondary))', marginBottom: '16px' }}>
-              Enter research topics and our AI agents will search, crawl, and extract opportunities for you.
+              Enter a few topics to search configured research sources for relevant openings.
             </p>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
@@ -341,7 +341,7 @@ export default function DashboardPage() {
           <div className="glass-card animate-in animate-delay-4" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>Upload Resume</h3>
             <p style={{ fontSize: '13px', color: 'hsl(var(--text-muted))', marginBottom: '14px', lineHeight: 1.5 }}>
-              Upload your CV/resume to get instant eligibility analysis across all opportunities.
+              Upload your CV/resume to review the skills and experience in your profile.
             </p>
 
             {/* Upload zone */}

@@ -43,9 +43,9 @@ async function fetchApi<T>(
       });
       if (refreshed.ok) res = await send();
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     throw new ApiError(
-      err.message || 'Unable to connect to backend server. Please check your network connection.',
+      err instanceof Error ? err.message : 'Unable to connect to backend server. Please check your network connection.',
       503
     );
   }
@@ -165,7 +165,12 @@ export interface ParsedProfile {
   programming_languages: string[];
   research_interests: string[];
   publications: { title: string }[];
-  projects: { title: string }[];
+  projects: {
+    title: string;
+    description: string | null;
+    technologies: string[];
+    status?: string | null;
+  }[];
 }
 
 export interface OpportunityMatch {
@@ -196,7 +201,7 @@ export interface OpportunityMatch {
 
 export interface ResumeAnalysis {
   parsed_profile: ParsedProfile;
-  profile_updates: Record<string, any>;
+  profile_updates: Record<string, unknown>;
   matched_opportunities: OpportunityMatch[];
 }
 
@@ -370,7 +375,7 @@ export async function unsaveOpportunity(
 export async function semanticSearch(
   query: string,
   limit = 20
-): Promise<{ query: string; results: any[]; total: number }> {
+): Promise<{ query: string; results: unknown[]; total: number }> {
   return fetchApi(
     `/api/v1/search/semantic?q=${encodeURIComponent(query)}&limit=${limit}`
   );

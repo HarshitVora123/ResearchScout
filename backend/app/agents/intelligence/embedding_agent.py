@@ -162,7 +162,9 @@ class EmbeddingAgent:
             skill_names = [s["skill_name"] if isinstance(s, dict) else s for s in profile["skills"]]
             parts.append(f"Skills: {', '.join(skill_names)}")
         if profile.get("research_interests"):
-            topics = [i["topic"] if isinstance(i, dict) else i for i in profile["research_interests"]]
+            topics = [
+                i["topic"] if isinstance(i, dict) else i for i in profile["research_interests"]
+            ]
             parts.append(f"Research Interests: {', '.join(topics)}")
         if profile.get("publications"):
             titles = [p["title"] if isinstance(p, dict) else p for p in profile["publications"][:5]]

@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
     setup_logging()
 
     import structlog
+
     logger = structlog.get_logger(__name__)
     logger.info("app_starting", app=settings.app_name, env=settings.app_env)
 
@@ -31,25 +32,25 @@ async def lifespan(app: FastAPI):
         import asyncio
 
         from app.vector.qdrant_service import QdrantService
+
         qdrant = QdrantService()
         await asyncio.wait_for(asyncio.to_thread(qdrant.ensure_collections), timeout=1.5)
         logger.info("qdrant_initialized")
     except Exception as e:
         logger.warning("qdrant_init_failed", error=str(e))
 
-
     # Initialize Neo4j schema
     try:
         import asyncio
 
         from app.knowledge_graph.neo4j_service import Neo4jService
+
         neo4j = Neo4jService()
-        await asyncio.wait_for(neo4j.init_schema(), timeout=2.0)
+        await asyncio.wait_for(neo4j.init_schema(), timeout=15.0)
         await neo4j.close()
         logger.info("neo4j_initialized")
     except Exception as e:
         logger.warning("neo4j_init_failed", error=str(e))
-
 
     yield
     # Shutdown
@@ -79,6 +80,7 @@ app.add_middleware(
 )
 
 # ── Exception Handlers ───────────────────────────────
+
 
 @app.exception_handler(ResearchScoutError)
 async def researchscout_error_handler(request: Request, exc: ResearchScoutError):
@@ -124,6 +126,7 @@ async def health_check():
 async def metrics():
     """Prometheus metrics endpoint."""
     from app.core.metrics import metrics_endpoint
+
     return metrics_endpoint()
 
 

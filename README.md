@@ -1,21 +1,21 @@
 # 🔬 ResearchScout
 
-**AI-Powered Research Opportunity Discovery Platform**
+**Research opportunities, easier to find.**
 
-ResearchScout uses 20+ autonomous AI agents to discover, extract, verify, rank, and recommend research opportunities — PhD positions, internships, fellowships, scholarships, and more — from thousands of sources worldwide.
+ResearchScout helps you search research openings, review source links, and keep relevant roles in one place. Discovery sources and optional language-model features depend on the credentials you configure; the app does not ship with provider credentials or a private opportunity feed.
 
 ## Architecture
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌───────────┐
 │  Next.js UI  │ ──→ │  FastAPI API  │ ──→ │  AI Agents   │ ──→ │  Storage  │
-│  (React 19)  │     │  (Python 3.12)│     │  (LangGraph) │     │  (5 DBs)  │
+│  (React 19)  │     │  (Python 3.12)│     │  (workers)   │     │  (4 stores)│
 └─────────────┘     └──────────────┘     └──────────────┘     └───────────┘
 ```
 
 - **Frontend:** Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS
 - **Backend:** FastAPI · SQLAlchemy (async) · Celery · structlog
-- **Agents:** LangGraph · Gemini 2.5 Flash · GPT-4o · spaCy
+- **Discovery:** Configurable search providers · optional Gemini / OpenAI extraction · rule-based NLP
 - **Storage:** PostgreSQL · Redis/Celery · Qdrant (vectors) · Neo4j (graph)
 - **Infra:** Docker Compose · GitHub Actions CI · Alembic migrations
 
@@ -24,43 +24,26 @@ ResearchScout uses 20+ autonomous AI agents to discover, extract, verify, rank, 
 ### 1. Clone & Configure
 
 ```bash
-cp .env.example .env       # Edit with your API keys
-cp frontend/.env.local.example frontend/.env.local
+Copy `.env.example` to `.env` and `frontend/.env.local.example` to `frontend/.env.local`. Add search provider credentials if you want discovery to fetch new listings; extraction providers are optional. Without provider credentials, you can run the app and use existing records, but external discovery is limited.
 ```
 
-### 2. Start Infrastructure
+### 2. Start the full project
 
 ```bash
-docker compose up -d postgres redis qdrant neo4j
+docker compose up --build
 ```
 
-### 3. Run Backend
+Compose starts the databases, API, background workers, scheduler, and frontend. Open [http://localhost:3000](http://localhost:3000) (frontend) and [http://localhost:8000/docs](http://localhost:8000/docs) (API docs). Use `docker compose down` to stop the services. On PowerShell, this single command creates missing local env files and starts the stack:
 
-```bash
-cd backend
-pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }; if (!(Test-Path frontend/.env.local)) { Copy-Item frontend/.env.local.example frontend/.env.local }; docker compose up --build
 ```
 
-### 4. Run Workers
+Docker Desktop must be running first. This starts the app with development defaults; configure real search provider credentials in `.env` for external discovery.
 
-```bash
-# In separate terminals:
-celery -A app.workers.celery_app worker -l info -Q default,extract
-celery -A app.workers.celery_app worker -l info -Q crawl
-celery -A app.workers.celery_app beat -l info
-```
+### Backups
 
-### 5. Run Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) (frontend) and [http://localhost:8000/docs](http://localhost:8000/docs) (API docs).
+PostgreSQL is the durable source of truth. Create a custom-format dump with `./scripts/backup.ps1`; dumps are written under `backups/` and excluded from Git. Restore a dump with `./scripts/restore.ps1 -Backup ./backups/<filename>.dump -Confirm`. Restore replaces database contents and stops the API/workers first. Redis contains transient queues; vector and graph indexes can be recreated from PostgreSQL records.
 
 ## Discovery Pipeline
 
@@ -75,7 +58,7 @@ PostgreSQL ← Dedup ← Validator ← NLP Enrichment ← LLM Extractor
 3. **Crawler** — Rate-limited HTTP fetching with robots.txt compliance
 4. **Content Cleaner** — HTML → markdown with boilerplate stripping; JavaScript rendering is not currently implemented
 5. **NLP Pre-filter** — Rule-based opportunity detection (14 regex patterns)
-6. **LLM Extractor** — Gemini Flash / GPT-4o structured extraction
+6. **Extractor** — Deterministic extraction runs first; Gemini / OpenAI are optional fallbacks
 7. **Validator** — Heuristic validation for URL shape, domain reputation, deadlines, completeness, scam indicators, and text overlap
 8. **Dedup** — Source URL + title+org deduplication
 9. **Storage** — PostgreSQL; vector and graph indexing run in Celery workers when configured
@@ -105,7 +88,7 @@ pytest tests/ -v --cov=app
 
 ```
 researchscout/
-├── frontend/          # Next.js 15 + TypeScript
+├── frontend/          # Next.js + TypeScript
 │   └── src/
 │       ├── app/       # Pages (landing, auth, opportunities, dashboard)
 │       ├── components/ # Reusable UI (Navbar, OpportunityCard)

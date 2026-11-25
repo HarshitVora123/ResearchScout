@@ -42,7 +42,6 @@ def get_qdrant_client() -> QdrantClient:
     return QdrantClient(url=settings.qdrant_url, timeout=2)
 
 
-
 class QdrantService:
     """High-level service for Qdrant vector operations."""
 
@@ -194,11 +193,13 @@ class QdrantService:
         for point in results.points:
             if exclude_ids and str(point.id) in exclude_ids:
                 continue
-            hits.append({
-                "id": str(point.id),
-                "score": point.score,
-                "payload": point.payload,
-            })
+            hits.append(
+                {
+                    "id": str(point.id),
+                    "score": point.score,
+                    "payload": point.payload,
+                }
+            )
 
         return hits
 

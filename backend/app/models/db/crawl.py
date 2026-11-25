@@ -49,9 +49,7 @@ class CrawlSource(Base):
     config: Mapped[dict | None] = mapped_column(JSON)  # Custom crawl config per source
 
     # ── Audit ────────────────────────────────────
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self) -> str:
         return f"<CrawlSource {self.domain!r}>"
@@ -63,18 +61,14 @@ class CrawlHistory(Base):
     __tablename__ = "crawl_history"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    source_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("crawl_sources.id")
-    )
+    source_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("crawl_sources.id"))
     url: Mapped[str] = mapped_column(Text, nullable=False)
     status_code: Mapped[int | None] = mapped_column(Integer)
     content_hash: Mapped[str | None] = mapped_column(Text)  # SHA-256 for change detection
     opportunities_found: Mapped[int] = mapped_column(Integer, default=0)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     error_message: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self) -> str:
         return f"<CrawlHistory {self.url!r} status={self.status_code}>"

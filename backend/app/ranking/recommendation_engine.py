@@ -89,7 +89,11 @@ class RecommendationEngine:
             elif "master" in user_degree.lower() and opp_type in ["PhD", "Research Assistant"]:
                 score += 0.25
                 reasons.append(f"Natural progression for {user_degree} degree")
-            elif "bachelor" in user_degree.lower() and opp_type in ["Internship", "Scholarship", "PhD"]:
+            elif "bachelor" in user_degree.lower() and opp_type in [
+                "Internship",
+                "Scholarship",
+                "PhD",
+            ]:
                 score += 0.25
                 reasons.append(f"Eligible for {user_degree} level background")
             elif any(user_degree.lower() in d for d in opp_degrees):
@@ -98,8 +102,7 @@ class RecommendationEngine:
 
         # 3. Skill & Programming Language Overlap (30% of rule score)
         user_skills = [
-            s["skill_name"] if isinstance(s, dict) else s
-            for s in user_profile.get("skills", [])
+            s["skill_name"] if isinstance(s, dict) else s for s in user_profile.get("skills", [])
         ]
         opp_skills = opportunity.get("required_skills", []) or []
         opp_langs = opportunity.get("programming_languages", []) or []
@@ -180,10 +183,7 @@ class RecommendationEngine:
 
             for candidate in unselected:
                 # Compute max similarity to already selected items
-                max_sim = max(
-                    self._item_similarity(candidate, sel)
-                    for sel in selected
-                )
+                max_sim = max(self._item_similarity(candidate, sel) for sel in selected)
 
                 # MMR score formula
                 mmr_score = (lambda_param * candidate.total_score) - ((1 - lambda_param) * max_sim)

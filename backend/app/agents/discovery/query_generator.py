@@ -53,24 +53,39 @@ SEARCH_TEMPLATES: dict[str, list[str]] = {
 
 # ── Curated Site Searches ────────────────────────────
 SITE_SEARCHES = [
-    ("site:euraxess.ec.europa.eu", [
-        "PhD position {topic}",
-        "postdoc {topic}",
-        "fellowship {topic}",
-    ]),
-    ("site:academicpositions.com", [
-        "PhD {topic}",
-        "postdoc {topic}",
-    ]),
-    ("site:findaphd.com", [
-        "{topic}",
-    ]),
-    ("site:scholarshipdb.net", [
-        "{topic} fully funded",
-    ]),
-    ("site:github.com/dspinellis/awesome-phd", [
-        "{topic}",
-    ]),
+    (
+        "site:euraxess.ec.europa.eu",
+        [
+            "PhD position {topic}",
+            "postdoc {topic}",
+            "fellowship {topic}",
+        ],
+    ),
+    (
+        "site:academicpositions.com",
+        [
+            "PhD {topic}",
+            "postdoc {topic}",
+        ],
+    ),
+    (
+        "site:findaphd.com",
+        [
+            "{topic}",
+        ],
+    ),
+    (
+        "site:scholarshipdb.net",
+        [
+            "{topic} fully funded",
+        ],
+    ),
+    (
+        "site:github.com/dspinellis/awesome-phd",
+        [
+            "{topic}",
+        ],
+    ),
 ]
 
 

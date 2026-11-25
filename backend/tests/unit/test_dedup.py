@@ -1,11 +1,9 @@
 """Unit tests for the Dedup Agent — MinHash and semantic deduplication."""
 
-import pytest
-
 from app.agents.intelligence.dedup_agent import (
     DedupAgent,
-    _tokenize,
     _minhash_signature,
+    _tokenize,
     minhash_similarity,
 )
 
@@ -47,22 +45,14 @@ class TestMinHash:
         assert sim == 1.0
 
     def test_similar_texts_high_similarity(self):
-        sig_a = _minhash_signature(
-            _tokenize("PhD Position in Natural Language Processing")
-        )
-        sig_b = _minhash_signature(
-            _tokenize("PhD Position in NLP and Natural Language Processing")
-        )
+        sig_a = _minhash_signature(_tokenize("PhD Position in Natural Language Processing"))
+        sig_b = _minhash_signature(_tokenize("PhD Position in NLP and Natural Language Processing"))
         sim = minhash_similarity(sig_a, sig_b)
         assert sim > 0.5
 
     def test_different_texts_low_similarity(self):
-        sig_a = _minhash_signature(
-            _tokenize("PhD Position in Natural Language Processing")
-        )
-        sig_b = _minhash_signature(
-            _tokenize("Postdoc in Quantum Computing and Physics")
-        )
+        sig_a = _minhash_signature(_tokenize("PhD Position in Natural Language Processing"))
+        sig_b = _minhash_signature(_tokenize("Postdoc in Quantum Computing and Physics"))
         sim = minhash_similarity(sig_a, sig_b)
         assert sim < 0.4
 

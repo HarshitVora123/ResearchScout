@@ -21,7 +21,9 @@ def validate_public_http_url(url: str) -> str:
         try:
             addresses = {
                 ipaddress.ip_address(record[4][0])
-                for record in socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80))
+                for record in socket.getaddrinfo(
+                    host, parsed.port or (443 if parsed.scheme == "https" else 80)
+                )
             }
         except (OSError, ValueError) as exc:
             raise ValueError("URL host could not be resolved") from exc

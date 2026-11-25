@@ -93,11 +93,21 @@ class Settings(BaseSettings):
         self.app_env = self.app_env.lower()
         if self.app_env.lower() == "production":
             if self.secret_key.startswith("change-me") or len(self.secret_key) < 32:
-                raise ValueError("SECRET_KEY must be a unique random value of at least 32 characters in production")
+                raise ValueError(
+                    "SECRET_KEY must be a unique random value of at least 32 "
+                    "characters in production"
+                )
             if len(self.admin_api_key) < 32:
-                raise ValueError("ADMIN_API_KEY must be a unique random value of at least 32 characters in production")
-            if not self.cors_origins or any("localhost" in origin or "127.0.0.1" in origin for origin in self.cors_origins):
-                raise ValueError("CORS_ORIGINS must contain deployed frontend origins in production")
+                raise ValueError(
+                    "ADMIN_API_KEY must be a unique random value of at least 32 "
+                    "characters in production"
+                )
+            if not self.cors_origins or any(
+                "localhost" in origin or "127.0.0.1" in origin for origin in self.cors_origins
+            ):
+                raise ValueError(
+                    "CORS_ORIGINS must contain deployed frontend origins in production"
+                )
             if urlparse(self.database_url).hostname in {None, "localhost", "127.0.0.1"}:
                 raise ValueError("DATABASE_URL must point to the production database")
         return self

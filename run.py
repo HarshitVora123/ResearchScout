@@ -162,6 +162,20 @@ def ensure_database_seeded() -> None:
             print(f"  [!] Note: Seeding had a minor issue ({e}), continuing...")
 
 
+def ensure_database_ready() -> None:
+    """Apply database migrations before seeding or starting the API."""
+    print("  [*] Applying database migrations...")
+    try:
+        subprocess.run(
+            [str(VENV_PYTHON), "-m", "alembic", "upgrade", "head"],
+            cwd=str(BACKEND_DIR),
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError("Database migrations failed; services were not started.") from exc
+    print("  [✓] Database schema is up to date.")
+
+
 # ── Launch Logic ──────────────────────────────────────────────────────────────
 
 def launch_safe(cmd: list[str], cwd: str, log_path: str, background: bool = False) -> subprocess.Popen:
@@ -265,7 +279,8 @@ def run_foreground():
     print("🔬 ResearchScout — Starting Autonomous Research Platform")
     print("=" * 50)
 
-    # 1. Ensure DB has data
+    # 1. Bring schema up to date, then ensure the local DB has sample data.
+    ensure_database_ready()
     ensure_database_seeded()
 
     # 2. Kill any stale processes on our ports
@@ -334,6 +349,7 @@ def run_foreground():
 def run_background():
     """Start both services as persistent background processes."""
     print("\n🚀 Starting ResearchScout in background mode...")
+    ensure_database_ready()
     ensure_database_seeded()
     b_proc = start_backend(background=True)
     f_proc = start_frontend(background=True)
@@ -390,6 +406,7 @@ def status():
 
 def seed():
     print("\n🌱 Seeding database...")
+    ensure_database_ready()
     ensure_database_seeded()
     print("✅ Done.\n")
 

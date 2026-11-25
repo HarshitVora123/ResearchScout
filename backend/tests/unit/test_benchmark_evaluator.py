@@ -1,7 +1,5 @@
 """Unit tests for Phase 6 — Benchmark Evaluator."""
 
-import pytest
-
 from app.research.benchmark_evaluator import BenchmarkEvaluator
 
 

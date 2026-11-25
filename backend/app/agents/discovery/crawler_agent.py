@@ -50,9 +50,7 @@ class CrawlerAgent:
                 result = await self._crawl_static(url)
 
             result.duration_ms = int((time.time() - start) * 1000)
-            result.content_hash = hashlib.sha256(
-                result.markdown.encode()
-            ).hexdigest()
+            result.content_hash = hashlib.sha256(result.markdown.encode()).hexdigest()
 
             return result
 

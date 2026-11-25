@@ -10,6 +10,7 @@ except ImportError:
     def task(weight: int = 1):  # type: ignore
         def decorator(f):
             return f
+
         return decorator
 
     def between(a: float, b: float):  # type: ignore
@@ -40,4 +41,3 @@ class ResearchScoutUser(HttpUser):
     def health_check(self):
         """Check system health."""
         self.client.get("/health")
-

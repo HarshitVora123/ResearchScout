@@ -19,6 +19,7 @@ from app.config import get_settings
 sqlite3.register_adapter(list, json.dumps)
 sqlite3.register_adapter(dict, json.dumps)
 
+
 @compiles(ARRAY, "sqlite")
 @compiles(JSONB, "sqlite")
 def _compile_pg_types_sqlite(element, compiler, **kw):  # type: ignore[no-untyped-def]
